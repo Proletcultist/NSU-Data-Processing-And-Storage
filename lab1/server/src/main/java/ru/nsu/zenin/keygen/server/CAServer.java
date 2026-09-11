@@ -1,4 +1,4 @@
-package ru.nsu.zenin.keygen;
+package ru.nsu.zenin.keygen.server;
 
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.DataInputStream;
 import java.io.OutputStream;
+import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class CAServer {
     private final ConcurrentMap<String, CompletableFuture<KeypairAndCert>> keypairs;
