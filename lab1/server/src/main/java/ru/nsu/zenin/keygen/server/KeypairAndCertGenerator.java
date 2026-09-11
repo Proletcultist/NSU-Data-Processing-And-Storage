@@ -1,4 +1,4 @@
-package ru.nsu.zenin.keygen;
+package ru.nsu.zenin.keygen.server;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.ContentSigner;
@@ -14,6 +14,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import java.security.PublicKey;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class KeypairAndCertGenerator {
     private final X500Name caname;
