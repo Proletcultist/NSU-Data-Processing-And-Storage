@@ -46,6 +46,6 @@ class KeypairAndCertGenerator {
             new SubjectPublicKeyInfo(new AlgorithmIdentifier(new ASN1ObjectIdentifier(pub.getAlgorithm())), pub.getEncoded())
         ).build(signer);
 
-        return new KeypairAndCert(keypair, cert);
+        return new KeypairAndCert(keypair.getPublic(), keypair.getPrivate(), cert);
     }
 }

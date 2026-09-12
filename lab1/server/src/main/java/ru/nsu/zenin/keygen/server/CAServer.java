@@ -1,11 +1,7 @@
 package ru.nsu.zenin.keygen.server;
 
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CompletableFuture;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.ExecutorService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.DataInputStream;
@@ -13,16 +9,12 @@ import java.io.OutputStream;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class CAServer {
-    private final ConcurrentMap<String, CompletableFuture<KeypairAndCert>> keypairs;
     private final ServerSocket serverSock;
-    private final KeypairAndCertGenerator generator;
-    private final ExecutorService computationsExecutor;
+    private final KeyService keyserivce;
 
-    public CAServer(ServerSocket sock, KeypairAndCertGenerator generator, ExecutorService computationsExecutor) {
-        this.keypairs = new ConcurrentHashMap<String, CompletableFuture<KeypairAndCert>>();
+    public CAServer(ServerSocket sock, KeyService keyserivce) {
         this.serverSock = sock;
-        this.generator = generator;
-        this.computationsExecutor = computationsExecutor;
+        this.keyserivce = keyserivce;
     }
     
     public void listen() throws IOException {
