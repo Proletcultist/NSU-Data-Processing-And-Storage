@@ -25,10 +25,15 @@ class KeyService {
 
         // No keypair and cert for this subject
         if (fut == null) {
-            KeypairAndCert ret = generator.generate(subjectName);
-            newFut.complete(ret);
+            computationsExecutor.submit(() -> {
+                KeypairAndCert ret = generator.generate(subjectName);
+                newFut.complete(ret);
+            });
 
-            return ret;
+            // newFut.get() cannor throw ExecutorService, this future always completes successfully
+            try {
+                return newFut.get();
+            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend", unexpectable); }
         }
         // Keypair and cert for this subject was already added
         else {
