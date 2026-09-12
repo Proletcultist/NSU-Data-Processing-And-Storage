@@ -4,6 +4,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class KeyService {
@@ -17,8 +18,24 @@ class KeyService {
         this.computationsExecutor = computationsExecutor;
     }
 
-    /*
-    KeypairAndCert getKeyForSubject(String subjectName) {
+    KeypairAndCert getKeyForSubject(String subjectName) throws InterruptedException {
+        CompletableFuture<KeypairAndCert> newFut = new CompletableFuture<KeypairAndCert>();
+
+        CompletableFuture<KeypairAndCert> fut = keypairs.putIfAbsent(subjectName, newFut);
+
+        // No keypair and cert for this subject
+        if (fut == null) {
+            KeypairAndCert ret = generator.generate(subjectName);
+            newFut.complete(ret);
+
+            return ret;
+        }
+        // Keypair and cert for this subject was already added
+        else {
+            // fut.get() cannor throw ExecutorService, this future always completes successfully
+            try {
+                return fut.get();
+            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend", unexpectable); }
+        }
     }
-    */
 }
