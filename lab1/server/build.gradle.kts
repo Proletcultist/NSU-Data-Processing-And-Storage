@@ -27,6 +27,15 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
     implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
 
+    // Source: https://mvnrepository.com/artifact/commons-cli/commons-cli
+    implementation("commons-cli:commons-cli:1.11.0")
+
+    // Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.2")
+
+    // Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.datatype/jackson-datatype-jsr310
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.2")
+
     implementation(project(":api"))
 }
 
@@ -39,7 +48,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "ru.nsu.zenin.rsagenerator.App"
+    mainClass = "ru.nsu.zenin.keygen.server.App"
 }
 
 tasks.named<Test>("test") {

@@ -5,6 +5,7 @@ import java.net.Socket;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.OutputStream;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
@@ -26,16 +27,22 @@ class CAServer {
 
     private void serveRequest(Socket socket) {
         try {
-            try {
-                InputStream is = socket.getInputStream();
-                OutputStream os = socket.getOutputStream();
+            InputStream is = socket.getInputStream();
+            String name = receiveSubjectName(is);
 
-                String name = receiveSubjectName(is);
-            }
-            finally {
+            KeypairAndCert out = keyserivce.getKeyForSubject(name);
+
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+        }
+        catch (InterruptedException ignore) {}
+        catch (Exception e) {
+            System.err.println("Failed to serve request from " + socket.getInetAddress() + ": " + e);
+        }
+        finally {
+            try {
                 socket.close();
-            }
-        } catch (IOException ignore) {}
+            } catch (IOException ignore) {}
+        }
     }
 
     private String receiveSubjectName(InputStream is) throws IOException {
