@@ -85,7 +85,7 @@ public class App {
 
             if (cmd.hasOption(help)) {
                 HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp("keygen --config <file> [options]", options);
+                formatter.printHelp("keygen-server --config <file> [options]", options);
                 return;
             }
             if (!cmd.hasOption(config)) {
@@ -108,7 +108,7 @@ public class App {
         }
     }
 
-    static void appMain(int workerThreads, CAServerConfig config) throws Exception {
+    private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
         InetSocketAddress addr = parseAddr(config.endpoint());
         PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
 

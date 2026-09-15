@@ -49,6 +49,7 @@ java {
 application {
     // Define the main class for the application.
     mainClass = "ru.nsu.zenin.keygen.server.App"
+    applicationName = "keygen-server"
 }
 
 tasks.named<Test>("test") {
