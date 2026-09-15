@@ -20,6 +20,7 @@ class CAServer {
     
     public void listen() throws IOException {
         while (true) {
+            // TODO: Set timeout for socket
             Socket client = serverSock.accept();
             Thread.ofVirtual().start(() -> serveRequest(client));
         }
@@ -33,6 +34,7 @@ class CAServer {
             KeypairAndCert out = keyserivce.getKeyForSubject(name);
 
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            out.serialize(dos);
         }
         catch (InterruptedException ignore) {}
         catch (Exception e) {

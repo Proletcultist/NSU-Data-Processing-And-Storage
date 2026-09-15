@@ -1,5 +1,6 @@
 package ru.nsu.zenin.keygen.server;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Period;
 
-record CAServerConfig(String name, String endpoint, Period certLifetime, String privateKeyFile) {}
+record CAServerConfig(@JsonProperty(required = true) String name, @JsonProperty(required = true) String endpoint, @JsonProperty(required = true) Period certLifetime, @JsonProperty(required = true) String privateKeyFile) {}
