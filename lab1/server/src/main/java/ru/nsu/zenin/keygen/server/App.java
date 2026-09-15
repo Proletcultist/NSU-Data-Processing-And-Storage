@@ -16,6 +16,7 @@ import java.net.ServerSocket;
 import java.security.SecureRandom;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -53,49 +54,61 @@ public class App {
 
     public static void main(String[] args) throws Exception {
         Option jobs = Option.builder()
-            .argName("j")
+            .argName("n")
+            .option("j")
             .longOpt("jobs")
             .hasArg(true)
             .desc("key generating threads amount")
-            .required()
             .build();
         Option config = Option.builder()
-            .argName("c")
+            .argName("file")
+            .option("c")
             .longOpt("config")
             .hasArg(true)
-            .desc("key generating threads amount")
-            .required()
+            .desc("path to config file")
+            .build();
+        Option help = Option.builder()
+            .option("h")
+            .longOpt("help")
+            .hasArg(false)
+            .desc("display help message")
             .build();
 
         Options options = new Options();
         options.addOption(jobs);
         options.addOption(config);
+        options.addOption(help);
 
         try {
             CommandLineParser parser = new DefaultParser();
             CommandLine cmd = parser.parse(options, args);
 
-            appMain(cmd);
+            if (cmd.hasOption(help)) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp("keygen --config <file> [options]", options);
+                return;
+            }
+            if (!cmd.hasOption(config)) {
+                System.err.println("Error: no config file provided");
+                System.exit(-1);
+            }
+
+            String workerThreadsRaw = cmd.getOptionValue(jobs);
+            int workerThreads = workerThreadsRaw == null ? Runtime.getRuntime().availableProcessors() : Integer.parseInt(workerThreadsRaw);
+
+            ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
+                .registerModule(new JavaTimeModule());
+            CAServerConfig caconfig = mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
+
+            appMain(workerThreads, caconfig);
         }
         catch (IOException | ParseException | InvalidKeySpecException | IllegalArgumentException e) {
-            System.err.println("Error " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
             System.exit(-1);
         }
     }
 
-    static void appMain(CommandLine cmd) throws Exception {
-        int workerThreads = 0;
-        try {
-            workerThreads = Integer.parseInt(cmd.getOptionValue("jobs"));
-        }
-        catch (NumberFormatException e) {
-            System.err.println("Failed to parse worker threads amount: \"" + cmd.getOptionValue("jobs") + "\"");
-        }
-
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
-            .registerModule(new JavaTimeModule());
-        CAServerConfig config = mapper.readValue(new File(cmd.getOptionValue("config")), CAServerConfig.class);
-
+    static void appMain(int workerThreads, CAServerConfig config) throws Exception {
         InetSocketAddress addr = parseAddr(config.endpoint());
         PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
 
