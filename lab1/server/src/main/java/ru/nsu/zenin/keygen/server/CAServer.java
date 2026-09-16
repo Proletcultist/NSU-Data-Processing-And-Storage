@@ -9,6 +9,7 @@ import java.io.DataOutputStream;
 import java.io.OutputStream;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
+// TODO: Implement AutoCloseable
 class CAServer {
     private final ServerSocket serverSock;
     private final KeyService keyserivce;

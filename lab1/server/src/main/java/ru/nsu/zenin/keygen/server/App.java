@@ -21,8 +21,6 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.ParseException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.io.File;
 import java.io.IOException;
 import org.bouncycastle.util.io.pem.PemObject;
@@ -34,23 +32,9 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.security.NoSuchAlgorithmException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
+import ru.nsu.zenin.util.InetSocketAddressParser;
 
 public class App {
-    static final Pattern ADDRESS_PATTERN = Pattern.compile("(.+):(\\d+)");
-
-    private static InetSocketAddress parseAddr(String str) throws IllegalArgumentException {
-        Matcher m = ADDRESS_PATTERN.matcher(str);
-        if (!m.matches()) {
-            throw new IllegalArgumentException("Invalid format of ip + port string");
-        }
-
-        try {
-            int port = Integer.parseInt(m.group(2));
-            return new InetSocketAddress(m.group(1), port);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid port string");
-        }
-    }
 
     public static void main(String[] args) throws Exception {
         Option jobs = Option.builder()
@@ -109,7 +93,7 @@ public class App {
     }
 
     private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
-        InetSocketAddress addr = parseAddr(config.endpoint());
+        InetSocketAddress addr = InetSocketAddressParser.parse(config.endpoint());
         PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
