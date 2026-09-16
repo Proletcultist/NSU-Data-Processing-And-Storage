@@ -37,6 +37,7 @@ dependencies {
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.2")
 
     implementation(project(":api"))
+    implementation(project(":util"))
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
