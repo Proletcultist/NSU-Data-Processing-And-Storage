@@ -14,6 +14,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import java.security.PublicKey;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class KeypairAndCertGenerator {
@@ -37,13 +38,13 @@ class KeypairAndCertGenerator {
         ZonedDateTime now = ZonedDateTime.now();
         ZonedDateTime certEnd = now.plus(certLifetime);
 
-        X509CertificateHolder cert = new X509v3CertificateBuilder(
+        X509CertificateHolder cert = new JcaX509v3CertificateBuilder(
             caname,
             BigInteger.valueOf(now.toEpochSecond()),
             Date.from(now.toInstant()),
             Date.from(certEnd.toInstant()),
             name,
-            new SubjectPublicKeyInfo(new AlgorithmIdentifier(new ASN1ObjectIdentifier(pub.getAlgorithm())), pub.getEncoded())
+            pub
         ).build(signer);
 
         return new KeypairAndCert(keypair.getPublic(), keypair.getPrivate(), cert);

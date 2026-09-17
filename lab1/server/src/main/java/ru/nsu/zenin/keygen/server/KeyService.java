@@ -26,21 +26,23 @@ class KeyService {
         // No keypair and cert for this subject
         if (fut == null) {
             computationsExecutor.submit(() -> {
-                KeypairAndCert ret = generator.generate(subjectName);
-                newFut.complete(ret);
+                try {
+                    KeypairAndCert ret = generator.generate(subjectName);
+                    newFut.complete(ret);
+                } catch (Throwable e) {
+                    newFut.completeExceptionally(e);
+                }
             });
 
-            // newFut.get() cannor throw ExecutorService, this future always completes successfully
             try {
                 return newFut.get();
-            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend", unexpectable); }
+            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend: " + unexpectable.getCause().getMessage(), unexpectable.getCause()); }
         }
         // Keypair and cert for this subject was already added
         else {
-            // fut.get() cannor throw ExecutorService, this future always completes successfully
             try {
                 return fut.get();
-            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend", unexpectable); }
+            } catch (ExecutionException unexpectable) { throw new RuntimeException("Unexpected exception happend: " + unexpectable.getCause().getMessage(), unexpectable.getCause()); }
         }
     }
 }

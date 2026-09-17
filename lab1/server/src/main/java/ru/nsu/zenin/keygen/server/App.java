@@ -98,7 +98,7 @@ public class App {
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
         KeyPairGenerator keypairGenerator = KeyPairGenerator.getInstance("RSA");
-        keypairGenerator.initialize(8192, new SecureRandom());
+        keypairGenerator.initialize(8192, SecureRandom.getInstance("NativePRNGNonBlocking"));
         X500Name caname = new X500Name(config.name());
 
         KeypairAndCertGenerator generator = new KeypairAndCertGenerator(caname, signer, keypairGenerator, config.certLifetime());
