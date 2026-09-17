@@ -14,40 +14,40 @@ import org.bouncycastle.operator.ContentSigner;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 class KeypairAndCertGenerator {
-  private final X500Name caname;
-  private final ContentSigner signer;
-  private final KeyPairGenerator keyGenerator;
-  private final TemporalAmount certLifetime;
+    private final X500Name caname;
+    private final ContentSigner signer;
+    private final KeyPairGenerator keyGenerator;
+    private final TemporalAmount certLifetime;
 
-  public KeypairAndCertGenerator(
-      X500Name caname,
-      ContentSigner signer,
-      KeyPairGenerator keyGenerator,
-      TemporalAmount certLifetime) {
-    this.caname = caname;
-    this.signer = signer;
-    this.keyGenerator = keyGenerator;
-    this.certLifetime = certLifetime;
-  }
+    public KeypairAndCertGenerator(
+            X500Name caname,
+            ContentSigner signer,
+            KeyPairGenerator keyGenerator,
+            TemporalAmount certLifetime) {
+        this.caname = caname;
+        this.signer = signer;
+        this.keyGenerator = keyGenerator;
+        this.certLifetime = certLifetime;
+    }
 
-  public KeypairAndCert generate(String subjectname) {
-    X500Name name = new X500Name(subjectname);
-    KeyPair keypair = keyGenerator.generateKeyPair();
-    PublicKey pub = keypair.getPublic();
+    public KeypairAndCert generate(String subjectname) {
+        X500Name name = new X500Name(subjectname);
+        KeyPair keypair = keyGenerator.generateKeyPair();
+        PublicKey pub = keypair.getPublic();
 
-    ZonedDateTime now = ZonedDateTime.now();
-    ZonedDateTime certEnd = now.plus(certLifetime);
+        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime certEnd = now.plus(certLifetime);
 
-    X509CertificateHolder cert =
-        new JcaX509v3CertificateBuilder(
-                caname,
-                BigInteger.valueOf(now.toEpochSecond()),
-                Date.from(now.toInstant()),
-                Date.from(certEnd.toInstant()),
-                name,
-                pub)
-            .build(signer);
+        X509CertificateHolder cert =
+                new JcaX509v3CertificateBuilder(
+                                caname,
+                                BigInteger.valueOf(now.toEpochSecond()),
+                                Date.from(now.toInstant()),
+                                Date.from(certEnd.toInstant()),
+                                name,
+                                pub)
+                        .build(signer);
 
-    return new KeypairAndCert(keypair.getPublic(), keypair.getPrivate(), cert);
-  }
+        return new KeypairAndCert(keypair.getPublic(), keypair.getPrivate(), cert);
+    }
 }
