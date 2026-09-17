@@ -115,8 +115,9 @@ public class App {
     sock.bind(addr);
     KeyService keyservice = new KeyService(generator, computationsExecutor);
 
-    CAServer serv = new CAServer(sock, keyservice);
-    serv.listen();
+    try (CAServer serv = new CAServer(sock, keyservice)) {
+      serv.listen();
+    }
   }
 
   static PrivateKey readPrivateKey(String filename) throws Exception {
