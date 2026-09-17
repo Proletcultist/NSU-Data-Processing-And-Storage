@@ -31,10 +31,23 @@ public class KeypairAndCert {
         this.algorithm = publicKey.getAlgorithm();
     }
 
-    /*
-    public static KeypairAndCert deserialize(DataInputStream dis) {
+    public static KeypairAndCert deserialize(DataInputStream dis, String algorithm) throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
+        KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+
+        byte[] publicKeyEncoded = new byte[dis.readInt()];
+        dis.readFully(publicKeyEncoded);
+        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyEncoded));
+
+        byte[] privateKeyEncoded = new byte[dis.readInt()];
+        dis.readFully(privateKeyEncoded);
+        PrivateKey privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyEncoded));
+
+        byte[] certEncoded = new byte[dis.readInt()];
+        dis.readFully(certEncoded);
+        X509CertificateHolder cert = new X509CertificateHolder(certEncoded);
+
+        return new KeypairAndCert(publicKey, privateKey, cert);
     }
-    */
 
     public void serialize(DataOutputStream dos) throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);

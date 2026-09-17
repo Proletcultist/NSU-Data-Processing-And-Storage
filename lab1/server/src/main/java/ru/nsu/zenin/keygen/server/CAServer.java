@@ -23,6 +23,7 @@ class CAServer {
         while (true) {
             // TODO: Set timeout for socket
             Socket client = serverSock.accept();
+            System.err.println("Connected " + client.getInetAddress());
             Thread.ofVirtual().start(() -> serveRequest(client));
         }
     }
@@ -32,10 +33,13 @@ class CAServer {
             InputStream is = socket.getInputStream();
             String name = receiveSubjectName(is);
 
-            KeypairAndCert out = keyserivce.getKeyForSubject(name);
+            System.err.println("Received name from " + socket.getInetAddress() +": " + name);
 
+            KeypairAndCert out = keyserivce.getKeyForSubject(name);
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
             out.serialize(dos);
+
+            System.err.println("Sent key and cert to " + socket.getInetAddress());
         }
         catch (InterruptedException ignore) {}
         catch (Exception e) {
@@ -49,20 +53,19 @@ class CAServer {
     }
 
     private String receiveSubjectName(InputStream is) throws IOException {
-        try (DataInputStream dis = new DataInputStream(is)) {
-            StringBuilder sb = new StringBuilder();
+        DataInputStream dis = new DataInputStream(is);
+        StringBuilder sb = new StringBuilder();
 
-            // TODO: Limit max characters amount to secure from DoS
-            while (true) {
-                char c = dis.readChar();
-                if (c == '\0') {
-                    break;
-                }
-
-                sb.append(c);
+        // TODO: Limit max characters amount to secure from DoS
+        while (true) {
+            char c = dis.readChar();
+            if (c == '\0') {
+                break;
             }
 
-            return sb.toString();
+            sb.append(c);
         }
+
+        return sb.toString();
     }
 }
