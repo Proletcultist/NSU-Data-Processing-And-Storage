@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "lab1"
-include("server", "api", "util")
+include("server", "client", "api", "util")
