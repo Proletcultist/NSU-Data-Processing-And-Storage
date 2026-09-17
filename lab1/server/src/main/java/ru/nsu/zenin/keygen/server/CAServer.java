@@ -10,6 +10,8 @@ import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 // TODO: Implement AutoCloseable
 class CAServer {
+  private static int SO_TIMEOUT = 5 * 1000; // 5 seconds
+
   private final ServerSocket serverSock;
   private final KeyService keyserivce;
 
@@ -20,8 +22,8 @@ class CAServer {
 
   public void listen() throws IOException {
     while (true) {
-      // TODO: Set timeout for socket
       Socket client = serverSock.accept();
+      client.setSoTimeout(SO_TIMEOUT);
       System.err.println("Connected " + client.getInetAddress());
       Thread.ofVirtual().start(() -> serveRequest(client));
     }
