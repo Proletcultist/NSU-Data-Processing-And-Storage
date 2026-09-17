@@ -34,105 +34,109 @@ import ru.nsu.zenin.util.InetSocketAddressParser;
 
 public class App {
 
-  public static void main(String[] args) throws Exception {
-    Option jobs =
-        Option.builder()
-            .argName("n")
-            .option("j")
-            .longOpt("jobs")
-            .hasArg(true)
-            .desc("key generating threads amount")
-            .build();
-    Option config =
-        Option.builder()
-            .argName("file")
-            .option("c")
-            .longOpt("config")
-            .hasArg(true)
-            .desc("path to config file")
-            .build();
-    Option help =
-        Option.builder()
-            .option("h")
-            .longOpt("help")
-            .hasArg(false)
-            .desc("display help message")
-            .build();
+    public static void main(String[] args) throws Exception {
+        Option jobs =
+                Option.builder()
+                        .argName("n")
+                        .option("j")
+                        .longOpt("jobs")
+                        .hasArg(true)
+                        .desc("key generating threads amount")
+                        .build();
+        Option config =
+                Option.builder()
+                        .argName("file")
+                        .option("c")
+                        .longOpt("config")
+                        .hasArg(true)
+                        .desc("path to config file")
+                        .build();
+        Option help =
+                Option.builder()
+                        .option("h")
+                        .longOpt("help")
+                        .hasArg(false)
+                        .desc("display help message")
+                        .build();
 
-    Options options = new Options();
-    options.addOption(jobs);
-    options.addOption(config);
-    options.addOption(help);
+        Options options = new Options();
+        options.addOption(jobs);
+        options.addOption(config);
+        options.addOption(help);
 
-    try {
-      CommandLineParser parser = new DefaultParser();
-      CommandLine cmd = parser.parse(options, args);
+        try {
+            CommandLineParser parser = new DefaultParser();
+            CommandLine cmd = parser.parse(options, args);
 
-      if (cmd.hasOption(help)) {
-        HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp("keygen-server --config <file> [options]", options);
-        return;
-      }
-      if (!cmd.hasOption(config)) {
-        System.err.println("Error: no config file provided");
-        System.exit(-1);
-      }
+            if (cmd.hasOption(help)) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp("keygen-server --config <file> [options]", options);
+                return;
+            }
+            if (!cmd.hasOption(config)) {
+                System.err.println("Error: no config file provided");
+                System.exit(-1);
+            }
 
-      String workerThreadsRaw = cmd.getOptionValue(jobs);
-      int workerThreads =
-          workerThreadsRaw == null
-              ? Runtime.getRuntime().availableProcessors()
-              : Integer.parseInt(workerThreadsRaw);
+            String workerThreadsRaw = cmd.getOptionValue(jobs);
+            int workerThreads =
+                    workerThreadsRaw == null
+                            ? Runtime.getRuntime().availableProcessors()
+                            : Integer.parseInt(workerThreadsRaw);
 
-      ObjectMapper mapper =
-          new ObjectMapper(new YAMLFactory()).registerModule(new JavaTimeModule());
-      CAServerConfig caconfig =
-          mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
+            ObjectMapper mapper =
+                    new ObjectMapper(new YAMLFactory()).registerModule(new JavaTimeModule());
+            CAServerConfig caconfig =
+                    mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
 
-      appMain(workerThreads, caconfig);
-    } catch (IOException | ParseException | InvalidKeySpecException | IllegalArgumentException e) {
-      System.err.println("Error: " + e.getMessage());
-      System.exit(-1);
+            appMain(workerThreads, caconfig);
+        } catch (IOException
+                | ParseException
+                | InvalidKeySpecException
+                | IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+            System.exit(-1);
+        }
     }
-  }
 
-  private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
-    Security.addProvider(new BouncyCastleProvider());
+    private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
 
-    InetSocketAddress addr = InetSocketAddressParser.parse(config.endpoint());
-    PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
+        InetSocketAddress addr = InetSocketAddressParser.parse(config.endpoint());
+        PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
 
-    ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
-    KeyPairGenerator keypairGenerator = KeyPairGenerator.getInstance("RSA");
-    keypairGenerator.initialize(8192, SecureRandom.getInstance("SHA1PRNG"));
-    X500Name caname = new X500Name(config.name());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
+        KeyPairGenerator keypairGenerator = KeyPairGenerator.getInstance("RSA");
+        keypairGenerator.initialize(8192, SecureRandom.getInstance("SHA1PRNG"));
+        X500Name caname = new X500Name(config.name());
 
-    KeypairAndCertGenerator generator =
-        new KeypairAndCertGenerator(caname, signer, keypairGenerator, config.certLifetime());
-    ExecutorService computationsExecutor = Executors.newFixedThreadPool(workerThreads);
+        KeypairAndCertGenerator generator =
+                new KeypairAndCertGenerator(
+                        caname, signer, keypairGenerator, config.certLifetime());
+        ExecutorService computationsExecutor = Executors.newFixedThreadPool(workerThreads);
 
-    ServerSocket sock = new ServerSocket();
-    sock.bind(addr);
-    KeyService keyservice = new KeyService(generator, computationsExecutor);
+        ServerSocket sock = new ServerSocket();
+        sock.bind(addr);
+        KeyService keyservice = new KeyService(generator, computationsExecutor);
 
-    try (CAServer serv = new CAServer(sock, keyservice)) {
-      serv.listen();
+        try (CAServer serv = new CAServer(sock, keyservice)) {
+            serv.listen();
+        }
     }
-  }
 
-  static PrivateKey readPrivateKey(String filename) throws Exception {
-    KeyFactory factory = KeyFactory.getInstance("RSA");
+    static PrivateKey readPrivateKey(String filename) throws Exception {
+        KeyFactory factory = KeyFactory.getInstance("RSA");
 
-    try (PemReader keyReader = new PemReader(new FileReader(new File(filename)))) {
-      PemObject pemObject = keyReader.readPemObject();
-      if (pemObject == null) {
-        throw new IllegalArgumentException(
-            "File " + filename + " doesn't contain private key in PEM format");
-      }
+        try (PemReader keyReader = new PemReader(new FileReader(new File(filename)))) {
+            PemObject pemObject = keyReader.readPemObject();
+            if (pemObject == null) {
+                throw new IllegalArgumentException(
+                        "File " + filename + " doesn't contain private key in PEM format");
+            }
 
-      byte[] content = pemObject.getContent();
-      PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(content);
-      return factory.generatePrivate(privKeySpec);
+            byte[] content = pemObject.getContent();
+            PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(content);
+            return factory.generatePrivate(privKeySpec);
+        }
     }
-  }
 }

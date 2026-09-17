@@ -7,7 +7,7 @@ subprojects {
 
     spotless{
         java{
-            googleJavaFormat()
+            googleJavaFormat().aosp()
         }
     }
 }
