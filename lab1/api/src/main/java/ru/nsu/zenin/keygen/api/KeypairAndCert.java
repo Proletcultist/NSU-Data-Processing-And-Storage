@@ -31,6 +31,19 @@ public class KeypairAndCert {
         this.algorithm = publicKey.getAlgorithm();
     }
 
+    public String getAlgorithm() {
+        return algorithm;
+    }
+    public PublicKey getPublicKey() {
+        return publicKey;
+    }
+    public PrivateKey getPrivateKey() {
+        return privateKey;
+    }
+    public X509CertificateHolder getCert() {
+        return cert;
+    }
+
     public static KeypairAndCert deserialize(DataInputStream dis, String algorithm) throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
 

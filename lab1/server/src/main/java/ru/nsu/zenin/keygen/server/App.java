@@ -1,5 +1,7 @@
 package ru.nsu.zenin.keygen.server;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.security.Security;
 import org.bouncycastle.asn1.x500.X500Name;
 import java.security.PrivateKey;
 import org.bouncycastle.operator.ContentSigner;
@@ -93,12 +95,14 @@ public class App {
     }
 
     private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
+
         InetSocketAddress addr = InetSocketAddressParser.parse(config.endpoint());
         PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
         KeyPairGenerator keypairGenerator = KeyPairGenerator.getInstance("RSA");
-        keypairGenerator.initialize(8192, SecureRandom.getInstance("NativePRNGNonBlocking"));
+        keypairGenerator.initialize(8192, SecureRandom.getInstance("SHA1PRNG"));
         X500Name caname = new X500Name(config.name());
 
         KeypairAndCertGenerator generator = new KeypairAndCertGenerator(caname, signer, keypairGenerator, config.certLifetime());

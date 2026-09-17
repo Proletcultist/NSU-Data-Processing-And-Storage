@@ -24,6 +24,9 @@ dependencies {
     // This dependency is used by the application.
     implementation(libs.guava)
 
+    // Source: https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
+
     // Source: https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
     implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
 
