@@ -10,6 +10,7 @@ import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
 // TODO: Implement AutoCloseable
 class CAServer {
+  private static int MAX_SUBJECT_NAME_LENGTH = 256;
   private static int SO_TIMEOUT = 5 * 1000; // 5 seconds
 
   private final ServerSocket serverSock;
@@ -56,8 +57,11 @@ class CAServer {
     DataInputStream dis = new DataInputStream(is);
     StringBuilder sb = new StringBuilder();
 
-    // TODO: Limit max characters amount to secure from DoS
     while (true) {
+      if (sb.length() >= MAX_SUBJECT_NAME_LENGTH) {
+        throw new IOException("Max subject name length exceeded");
+      }
+
       char c = dis.readChar();
       if (c == '\0') {
         break;
