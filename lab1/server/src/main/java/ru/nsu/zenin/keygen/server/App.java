@@ -1,5 +1,8 @@
 package ru.nsu.zenin.keygen.server;
 
+import am.ik.yavi.builder.ValidatorBuilder;
+import am.ik.yavi.core.ConstraintViolations;
+import am.ik.yavi.core.Validator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -10,6 +13,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
@@ -27,93 +31,131 @@ import org.apache.commons.cli.ParseException;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
+import ru.nsu.zenin.keygen.server.exception.NoPemObjectException;
 import ru.nsu.zenin.util.InetSocketAddressParser;
 
 public class App {
+    private static Option jobs =
+            Option.builder()
+                    .argName("workerThreads")
+                    .option("j")
+                    .longOpt("jobs")
+                    .hasArg(true)
+                    .desc("key generating threads amount")
+                    .build();
+    private static Option config =
+            Option.builder()
+                    .argName("file")
+                    .option("c")
+                    .longOpt("config")
+                    .hasArg(true)
+                    .desc("path to config file")
+                    .build();
+    private static Option help =
+            Option.builder()
+                    .option("h")
+                    .longOpt("help")
+                    .hasArg(false)
+                    .desc("display help message")
+                    .build();
+    private static Options options =
+            new Options().addOption(jobs).addOption(config).addOption(help);
 
-    public static void main(String[] args) throws Exception {
-        Option jobs =
-                Option.builder()
-                        .argName("n")
-                        .option("j")
-                        .longOpt("jobs")
-                        .hasArg(true)
-                        .desc("key generating threads amount")
-                        .build();
-        Option config =
-                Option.builder()
-                        .argName("file")
-                        .option("c")
-                        .longOpt("config")
-                        .hasArg(true)
-                        .desc("path to config file")
-                        .build();
-        Option help =
-                Option.builder()
-                        .option("h")
-                        .longOpt("help")
-                        .hasArg(false)
-                        .desc("display help message")
-                        .build();
+    private static final Validator<CAServerConfig> confValidator =
+            ValidatorBuilder.<CAServerConfig>of()
+                    ._object(CAServerConfig::getName, "name", c -> c.notNull())
+                    ._object(CAServerConfig::getEndpoint, "endpoint", c -> c.notNull())
+                    ._object(CAServerConfig::getCertLifetime, "certLifetime", c -> c.notNull())
+                    ._object(CAServerConfig::getPrivateKeyFile, "privateKeyFile", c -> c.notNull())
+                    ._integer(
+                            CAServerConfig::getWorkerThreads,
+                            "workerThreads",
+                            c -> c.notNull().greaterThan(0))
+                    .build();
 
-        Options options = new Options();
-        options.addOption(jobs);
-        options.addOption(config);
-        options.addOption(help);
-
+    public static void main(String[] args) {
         try {
             CommandLineParser parser = new DefaultParser();
             CommandLine cmd = parser.parse(options, args);
 
+            // If there is --help option - display help and exit
             if (cmd.hasOption(help)) {
                 HelpFormatter formatter = new HelpFormatter();
                 formatter.printHelp("keygen-server --config <file> [options]", options);
                 return;
             }
-            if (!cmd.hasOption(config)) {
-                System.err.println("Error: no config file provided");
+
+            CAServerConfig conf = parseArgs(cmd);
+            ConstraintViolations violations = confValidator.validate(conf);
+            if (!violations.isValid()) {
+                System.err.println("Error: " + violations.get(0).message());
                 System.exit(-1);
             }
 
-            String workerThreadsRaw = cmd.getOptionValue(jobs);
-            int workerThreads =
-                    workerThreadsRaw == null
-                            ? Runtime.getRuntime().availableProcessors()
-                            : Integer.parseInt(workerThreadsRaw);
-
-            ObjectMapper mapper =
-                    new ObjectMapper(new YAMLFactory()).registerModule(new JavaTimeModule());
-            CAServerConfig caconfig =
-                    mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
-
-            appMain(workerThreads, caconfig);
-        } catch (IOException
-                | ParseException
-                | InvalidKeySpecException
-                | IllegalArgumentException e) {
+            appMain(conf);
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
             System.exit(-1);
         }
     }
 
-    private static void appMain(int workerThreads, CAServerConfig config) throws Exception {
+    private static CAServerConfig parseArgs(CommandLine cmd) throws ParseException, IOException {
+        if (!cmd.hasOption(config)) {
+            throw new ParseException("No config file provided");
+        }
+
+        ObjectMapper mapper =
+                new ObjectMapper(new YAMLFactory()).registerModule(new JavaTimeModule());
+        CAServerConfig conf =
+                mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
+
+        if (cmd.hasOption(jobs)) {
+            String workerThreadsRaw = cmd.getOptionValue(jobs);
+            int workerThreads = Integer.parseInt(workerThreadsRaw);
+            conf.setWorkerThreads(workerThreads);
+        } else if (conf.getWorkerThreads() == null) {
+            conf.setWorkerThreads(Runtime.getRuntime().availableProcessors());
+        }
+
+        return conf;
+    }
+
+    private static void appMain(CAServerConfig config)
+            throws IOException, InvalidKeySpecException, NoPemObjectException {
         Security.addProvider(new BouncyCastleProvider());
 
-        InetSocketAddress addr = InetSocketAddressParser.parse(config.endpoint());
-        PrivateKey CAPrivateKey = readPrivateKey(config.privateKeyFile());
+        InetSocketAddress addr = InetSocketAddressParser.parse(config.getEndpoint());
+        PrivateKey CAPrivateKey = readPrivateKey(config.getPrivateKeyFile());
 
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
-        KeyPairGenerator keypairGenerator = KeyPairGenerator.getInstance("RSA");
-        keypairGenerator.initialize(8192, SecureRandom.getInstance("SHA1PRNG"));
-        X500Name caname = new X500Name(config.name());
+        ContentSigner signer;
+        try {
+            signer = new JcaContentSignerBuilder("SHA256withRSA").build(CAPrivateKey);
+        } catch (OperatorCreationException e) {
+            throw new RuntimeException("Unexpected exception", e);
+        }
+
+        KeyPairGenerator keypairGenerator;
+        try {
+            keypairGenerator = KeyPairGenerator.getInstance("RSA");
+            keypairGenerator.initialize(8192, SecureRandom.getInstance("SHA1PRNG"));
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Unexpected exception", e);
+        }
+        // TODO: Handle illegalargumentexception
+        X500Name caname = new X500Name(config.getName());
 
         KeypairAndCertGenerator generator =
                 new KeypairAndCertGenerator(
-                        caname, signer, keypairGenerator, config.certLifetime());
-        ExecutorService computationsExecutor = Executors.newFixedThreadPool(workerThreads);
+                        caname, signer, keypairGenerator, config.getCertLifetime());
+        ExecutorService computationsExecutor =
+                Executors.newFixedThreadPool(config.getWorkerThreads());
 
         ServerSocket sock = new ServerSocket();
         sock.bind(addr);
@@ -124,13 +166,19 @@ public class App {
         }
     }
 
-    static PrivateKey readPrivateKey(String filename) throws Exception {
-        KeyFactory factory = KeyFactory.getInstance("RSA");
+    private static PrivateKey readPrivateKey(String filename)
+            throws IOException, InvalidKeySpecException, NoPemObjectException {
+        KeyFactory factory;
+        try {
+            factory = KeyFactory.getInstance("RSA");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Unexpected exception", e);
+        }
 
         try (PemReader keyReader = new PemReader(new FileReader(new File(filename)))) {
             PemObject pemObject = keyReader.readPemObject();
             if (pemObject == null) {
-                throw new IllegalArgumentException(
+                throw new NoPemObjectException(
                         "File " + filename + " doesn't contain private key in PEM format");
             }
 

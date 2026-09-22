@@ -8,7 +8,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
-// TODO: Implement AutoCloseable
 class CAServer implements AutoCloseable {
     private static int MAX_SUBJECT_NAME_LENGTH = 256;
     private static int SO_TIMEOUT = 5 * 1000; // 5 seconds

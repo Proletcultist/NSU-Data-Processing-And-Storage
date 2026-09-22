@@ -12,13 +12,13 @@ class KeyService {
     private final KeypairAndCertGenerator generator;
     private final ExecutorService computationsExecutor;
 
-    KeyService(KeypairAndCertGenerator generator, ExecutorService computationsExecutor) {
+    public KeyService(KeypairAndCertGenerator generator, ExecutorService computationsExecutor) {
         this.keypairs = new ConcurrentHashMap<String, CompletableFuture<KeypairAndCert>>();
         this.generator = generator;
         this.computationsExecutor = computationsExecutor;
     }
 
-    KeypairAndCert getKeyForSubject(String subjectName) throws InterruptedException {
+    public KeypairAndCert getKeyForSubject(String subjectName) throws InterruptedException {
         CompletableFuture<KeypairAndCert> newFut = new CompletableFuture<KeypairAndCert>();
 
         CompletableFuture<KeypairAndCert> fut = keypairs.putIfAbsent(subjectName, newFut);
