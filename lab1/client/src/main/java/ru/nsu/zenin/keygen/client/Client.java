@@ -1,5 +1,8 @@
 package ru.nsu.zenin.keygen.client;
 
+import am.ik.yavi.builder.ValidatorBuilder;
+import am.ik.yavi.core.ConstraintViolations;
+import am.ik.yavi.core.Validator;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -27,6 +30,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemWriter;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
@@ -36,6 +40,108 @@ public class Client {
     private static Path publicKeyFile = Paths.get("public.key");
     private static Path privateKeyFile = Paths.get("private.key");
     private static Path certFile = Paths.get("certificate.crt");
+
+    private static Option delay =
+            Option.builder()
+                    .argName("secs")
+                    .option("d")
+                    .longOpt("delay")
+                    .hasArg(true)
+                    .desc("delay between sending request and receiving response")
+                    .build();
+    private static Option fail =
+            Option.builder()
+                    .option("f")
+                    .longOpt("fail")
+                    .hasArg(false)
+                    .desc("disconnect after sending request instead of waiting for response")
+                    .build();
+    private static Option help =
+            Option.builder()
+                    .option("h")
+                    .longOpt("help")
+                    .hasArg(false)
+                    .desc("display help message")
+                    .build();
+    private static Options options = new Options().addOption(delay).addOption(fail).addOption(help);
+
+    private static final Validator<ClientConfig> confValidator =
+            ValidatorBuilder.<ClientConfig>of()
+                    ._object(ClientConfig::getName, "name", c -> c.notNull())
+                    ._object(ClientConfig::getEndpoint, "endpoint", c -> c.notNull())
+                    ._long(ClientConfig::getDelay, "delay", c -> c.notNull().greaterThanOrEqual(0L))
+                    ._object(ClientConfig::getFail, "fail", c -> c.notNull())
+                    .build();
+
+    public static void main(String[] args)
+            throws InvalidKeySpecException, NoSuchAlgorithmException {
+        try {
+            CommandLineParser parser = new DefaultParser();
+            CommandLine cmd = parser.parse(options, args);
+
+            if (cmd.hasOption(help)) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp("keygen-client [options] <endpoint> <subject name>", options);
+                return;
+            }
+
+            ClientConfig conf = parseArgs(cmd);
+            ConstraintViolations violations = confValidator.validate(conf);
+            if (!violations.isValid()) {
+                System.err.println("Error: " + violations.get(0).message());
+                System.exit(-1);
+            }
+
+            appMain(conf);
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        } catch (InterruptedException e) {
+            System.exit(-1);
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            System.exit(-1);
+        }
+    }
+
+    private static ClientConfig parseArgs(CommandLine cmd) throws ParseException {
+        List<String> cmdArgs = cmd.getArgList();
+
+        if (cmdArgs.size() == 0) {
+            throw new ParseException("Error: missing endpoint and subject name");
+        } else if (cmdArgs.size() == 1) {
+            throw new ParseException("Error: missing subject name");
+        } else if (cmdArgs.size() > 2) {
+            throw new ParseException("Error: too much arguments provided");
+        }
+
+        String delayRaw = cmd.getOptionValue(delay);
+        long delayArg = delayRaw == null ? 0 : Long.parseLong(delayRaw);
+
+        InetSocketAddress addr;
+        try {
+            addr = InetSocketAddressParser.parse(cmdArgs.get(0));
+        } catch (IllegalArgumentException e) {
+            throw new ParseException(
+                    "Error while parsing endpoint from \""
+                            + cmdArgs.get(0)
+                            + "\": "
+                            + e.getMessage());
+        }
+
+        X500Name subjectName;
+        try {
+            subjectName = new X500Name(cmdArgs.get(1));
+        } catch (IllegalArgumentException e) {
+            throw new ParseException(
+                    "Error while parsing subject name from \""
+                            + cmdArgs.get(1)
+                            + "\": "
+                            + e.getMessage());
+        }
+
+        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail));
+    }
 
     private static Writer tryCreateFile(Path file) throws IOException {
         if (Files.exists(file)) {
@@ -64,93 +170,23 @@ public class Client {
                         file, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
     }
 
-    public static void main(String[] args)
-            throws InvalidKeySpecException, NoSuchAlgorithmException {
-        Option delay =
-                Option.builder()
-                        .argName("secs")
-                        .option("d")
-                        .longOpt("delay")
-                        .hasArg(true)
-                        .desc("delay between sending request and receiving response")
-                        .build();
-        Option fail =
-                Option.builder()
-                        .option("f")
-                        .longOpt("fail")
-                        .hasArg(false)
-                        .desc("disconnect after sending request instead of waiting for response")
-                        .build();
-        Option help =
-                Option.builder()
-                        .option("h")
-                        .longOpt("help")
-                        .hasArg(false)
-                        .desc("display help message")
-                        .build();
-        Options options = new Options();
-        options.addOption(delay);
-        options.addOption(fail);
-        options.addOption(help);
-
-        try {
-            CommandLineParser parser = new DefaultParser();
-            CommandLine cmd = parser.parse(options, args);
-
-            if (cmd.hasOption(help)) {
-                HelpFormatter formatter = new HelpFormatter();
-                formatter.printHelp("keygen-client [options] <endpoint> <subject name>", options);
-                return;
-            }
-
-            List<String> cmdArgs = cmd.getArgList();
-
-            if (cmdArgs.size() == 0) {
-                System.err.println("Error: missing endpoint and subject name");
-                System.exit(-1);
-            } else if (cmdArgs.size() == 1) {
-                System.err.println("Error: missing subject name");
-                System.exit(-1);
-            } else if (cmdArgs.size() > 2) {
-                System.err.println("Error: too much arguments provided");
-                System.exit(-1);
-            }
-
-            String delayRaw = cmd.getOptionValue(delay);
-            long delayArg = delayRaw == null ? 0 : Long.parseLong(delayRaw);
-            InetSocketAddress addr = InetSocketAddressParser.parse(cmdArgs.get(0));
-            String subjectName = cmdArgs.get(1);
-
-            appMain(addr, subjectName, delayArg, cmd.hasOption(fail));
-        } catch (ParseException | IllegalArgumentException | IOException e) {
-            System.err.println("Error: " + e.getMessage());
-            System.exit(-1);
-        } catch (InterruptedException e) {
-            System.exit(-1);
-        }
-    }
-
-    private static void appMain(
-            InetSocketAddress addr, String subjectName, long delay, boolean fail)
-            throws IOException,
-                    InterruptedException,
-                    InvalidKeySpecException,
-                    NoSuchAlgorithmException {
+    private static void appMain(ClientConfig conf)
+            throws IOException, InterruptedException, InvalidKeySpecException {
         try (Socket sock = new Socket()) {
-            sock.connect(addr);
+            sock.connect(conf.getEndpoint());
 
             DataInputStream dis = new DataInputStream(sock.getInputStream());
             DataOutputStream dos = new DataOutputStream(sock.getOutputStream());
 
-            for (char c : subjectName.toCharArray()) {
+            for (char c : conf.getName().toString().toCharArray()) {
                 dos.writeChar(c);
             }
             dos.writeChar('\0');
 
-            if (fail) {
+            if (conf.getFail()) {
                 return;
-            } else if (delay > 0) {
-                Thread.sleep(delay);
+            } else if (conf.getDelay() > 0) {
+                Thread.sleep(conf.getDelay());
             }
 
             try {
@@ -181,6 +217,8 @@ public class Client {
                         }
                     }
                 }
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("Unexpected exception", e);
             } catch (EOFException e) {
                 // Rethrow because generated EOFException doesn't contain any message
                 throw new EOFException("Server unexpectedly closed the connection");
