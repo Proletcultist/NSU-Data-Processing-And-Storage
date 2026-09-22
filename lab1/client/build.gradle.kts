@@ -30,6 +30,12 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation("commons-cli:commons-cli:1.11.0")
 
+    // Source: https://mvnrepository.com/artifact/am.ik.yavi/yavi
+    implementation("am.ik.yavi:yavi:0.17.0")
+
+    compileOnly("org.projectlombok:lombok:1.18.48")
+	annotationProcessor("org.projectlombok:lombok:1.18.48")
+
     implementation(project(":api"))
     implementation(project(":util"))
 }
