@@ -30,7 +30,7 @@ import org.apache.commons.cli.ParseException;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemWriter;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
-import ru.nsu.zenin.util.InetSocketAddressParser;
+import ru.nsu.zenin.util.parser.InetSocketAddressParser;
 
 public class Client {
     private static Path publicKeyFile = Paths.get("public.key");

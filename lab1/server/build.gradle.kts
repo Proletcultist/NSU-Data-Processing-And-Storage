@@ -33,6 +33,9 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation("commons-cli:commons-cli:1.11.0")
 
+    // Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+
     // Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.2")
 

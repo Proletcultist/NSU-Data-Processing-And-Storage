@@ -14,8 +14,11 @@ dependencies {
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
-    // This dependency is used by the application.
-    implementation(libs.guava)
+    // Source: https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+
+    // Source: https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

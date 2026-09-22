@@ -28,7 +28,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -36,7 +35,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
 import ru.nsu.zenin.keygen.server.exception.NoPemObjectException;
-import ru.nsu.zenin.util.InetSocketAddressParser;
+import ru.nsu.zenin.util.jackson.X500NameModule;
 
 public class App {
     private static Option jobs =
@@ -112,7 +111,9 @@ public class App {
         }
 
         ObjectMapper mapper =
-                new ObjectMapper(new YAMLFactory()).registerModule(new JavaTimeModule());
+                new ObjectMapper(new YAMLFactory())
+                        .registerModule(new JavaTimeModule())
+                        .registerModule(new X500NameModule());
         CAServerConfig conf =
                 mapper.readValue(new File(cmd.getOptionValue(config)), CAServerConfig.class);
 
@@ -131,7 +132,9 @@ public class App {
             throws IOException, InvalidKeySpecException, NoPemObjectException {
         Security.addProvider(new BouncyCastleProvider());
 
-        InetSocketAddress addr = InetSocketAddressParser.parse(config.getEndpoint());
+        InetSocketAddress addr =
+                new InetSocketAddress(
+                        config.getEndpoint().getHostString(), config.getEndpoint().getPort());
         PrivateKey CAPrivateKey = readPrivateKey(config.getPrivateKeyFile());
 
         ContentSigner signer;
@@ -148,12 +151,10 @@ public class App {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Unexpected exception", e);
         }
-        // TODO: Handle illegalargumentexception
-        X500Name caname = new X500Name(config.getName());
 
         KeypairAndCertGenerator generator =
                 new KeypairAndCertGenerator(
-                        caname, signer, keypairGenerator, config.getCertLifetime());
+                        config.getName(), signer, keypairGenerator, config.getCertLifetime());
         ExecutorService computationsExecutor =
                 Executors.newFixedThreadPool(config.getWorkerThreads());
 
