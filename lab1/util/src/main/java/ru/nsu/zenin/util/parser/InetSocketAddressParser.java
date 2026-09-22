@@ -1,4 +1,4 @@
-package ru.nsu.zenin.util;
+package ru.nsu.zenin.util.parser;
 
 import java.net.InetSocketAddress;
 import java.util.regex.Matcher;
