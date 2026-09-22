@@ -10,6 +10,7 @@ public class InetSocketAddressParser {
     private InetSocketAddressParser() {}
 
     public static InetSocketAddress parse(String str) throws IllegalArgumentException {
+        // TODO: Throw some checked exception istead of IllegalArgumentException
         Matcher m = ADDRESS_PATTERN.matcher(str);
         if (!m.matches()) {
             throw new IllegalArgumentException("Invalid format of ip + port string");
