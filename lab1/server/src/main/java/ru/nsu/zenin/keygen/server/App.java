@@ -1,6 +1,8 @@
 package ru.nsu.zenin.keygen.server;
 
 import am.ik.yavi.builder.ValidatorBuilder;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import am.ik.yavi.core.ConstraintViolations;
 import am.ik.yavi.core.Validator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -167,7 +169,7 @@ public class App {
         }
     }
 
-    private static PrivateKey readPrivateKey(String filename)
+    private static PrivateKey readPrivateKey(Path filename)
             throws IOException, InvalidKeySpecException, NoPemObjectException {
         KeyFactory factory;
         try {
@@ -176,7 +178,7 @@ public class App {
             throw new RuntimeException("Unexpected exception", e);
         }
 
-        try (PemReader keyReader = new PemReader(new FileReader(new File(filename)))) {
+        try (PemReader keyReader = new PemReader(Files.newBufferedReader(filename))) {
             PemObject pemObject = keyReader.readPemObject();
             if (pemObject == null) {
                 throw new NoPemObjectException(
