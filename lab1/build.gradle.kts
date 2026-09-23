@@ -3,11 +3,13 @@ plugins {
 }
 
 subprojects {
-   apply(plugin = "com.diffplug.spotless")
+    /*
+    apply(plugin = "com.diffplug.spotless")
 
     spotless{
         java{
             googleJavaFormat().aosp()
         }
     }
+    */
 }
