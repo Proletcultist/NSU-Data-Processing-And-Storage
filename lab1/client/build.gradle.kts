@@ -49,7 +49,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "ru.nsu.zenin.keygen.client.Client"
+    mainClass = "ru.nsu.zenin.keygen.client.App"
     applicationName = "keygen-client"
 }
 
