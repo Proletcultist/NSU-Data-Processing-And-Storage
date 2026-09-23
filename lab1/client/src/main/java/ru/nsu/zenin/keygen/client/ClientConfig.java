@@ -1,5 +1,6 @@
 package ru.nsu.zenin.keygen.client;
 
+import java.nio.file.Path;
 import java.net.InetSocketAddress;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,4 +19,5 @@ class ClientConfig {
     private Boolean fail;
     private String outputName;
     private Boolean merge;
+    private Path outputDir;
 }
