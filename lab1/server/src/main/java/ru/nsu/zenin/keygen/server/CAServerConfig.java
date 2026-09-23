@@ -1,5 +1,6 @@
 package ru.nsu.zenin.keygen.server;
 
+import java.nio.file.Path;
 import java.net.InetSocketAddress;
 import java.time.Period;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,6 @@ class CAServerConfig {
     private X500Name name;
     private InetSocketAddress endpoint;
     private Period certLifetime;
-    private String privateKeyFile;
+    private Path privateKeyFile;
     private Integer workerThreads;
 }
