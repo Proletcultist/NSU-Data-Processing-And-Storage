@@ -16,4 +16,6 @@ class ClientConfig {
     private X500Name name;
     private Long delay;
     private Boolean fail;
+    private String outputName;
+    private Boolean merge;
 }

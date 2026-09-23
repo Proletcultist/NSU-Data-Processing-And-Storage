@@ -37,10 +37,6 @@ import ru.nsu.zenin.keygen.api.KeypairAndCert;
 import ru.nsu.zenin.util.parser.InetSocketAddressParser;
 
 public class Client {
-    private static Path publicKeyFile = Paths.get("public.key");
-    private static Path privateKeyFile = Paths.get("private.key");
-    private static Path certFile = Paths.get("certificate.crt");
-
     private static Option delay =
             Option.builder()
                     .argName("secs")
@@ -56,6 +52,21 @@ public class Client {
                     .hasArg(false)
                     .desc("disconnect after sending request instead of waiting for response")
                     .build();
+    private static Option outputName = 
+            Option.builder()
+                    .argName("outputName")
+                    .option("o")
+                    .longOpt("output")
+                    .hasArg(true)
+                    .desc("Name of the keypair and certificate. Without --merge option create files <name>.key, <name>_pub.key and <name>.cert. With --merge option create file <name>.pem")
+                    .build();
+    private static Option merge =
+            Option.builder()
+                    .option("m")
+                    .longOpt("merge")
+                    .hasArg(false)
+                    .desc("Output public, private keys and certificate into one .pem file")
+                    .build();
     private static Option help =
             Option.builder()
                     .option("h")
@@ -63,7 +74,13 @@ public class Client {
                     .hasArg(false)
                     .desc("display help message")
                     .build();
-    private static Options options = new Options().addOption(delay).addOption(fail).addOption(help);
+    private static Options options = 
+            new Options()
+                    .addOption(delay)
+                    .addOption(fail)
+                    .addOption(help)
+                    .addOption(outputName)
+                    .addOption(merge);
 
     private static final Validator<ClientConfig> confValidator =
             ValidatorBuilder.<ClientConfig>of()
@@ -71,6 +88,8 @@ public class Client {
                     ._object(ClientConfig::getEndpoint, "endpoint", c -> c.notNull())
                     ._long(ClientConfig::getDelay, "delay", c -> c.notNull().greaterThanOrEqual(0L))
                     ._object(ClientConfig::getFail, "fail", c -> c.notNull())
+                    ._object(ClientConfig::getOutputName, "outputName", c -> c.notNull())
+                    ._object(ClientConfig::getMerge, "merge", c -> c.notNull())
                     .build();
 
     public static void main(String[] args)
@@ -107,14 +126,18 @@ public class Client {
     private static ClientConfig parseArgs(CommandLine cmd) throws ParseException {
         List<String> cmdArgs = cmd.getArgList();
 
+        if (!cmd.hasOption(outputName)) {
+            throw new ParseException("Missing --output option");
+        }
         if (cmdArgs.size() == 0) {
-            throw new ParseException("Error: missing endpoint and subject name");
+            throw new ParseException("Missing endpoint and subject name");
         } else if (cmdArgs.size() == 1) {
-            throw new ParseException("Error: missing subject name");
+            throw new ParseException("Missing subject name");
         } else if (cmdArgs.size() > 2) {
-            throw new ParseException("Error: too much arguments provided");
+            throw new ParseException("Too much arguments provided");
         }
 
+        String outputName = cmd.getOptionValue(Client.outputName);
         String delayRaw = cmd.getOptionValue(delay);
         long delayArg = delayRaw == null ? 0 : Long.parseLong(delayRaw);
 
@@ -140,7 +163,7 @@ public class Client {
                             + e.getMessage());
         }
 
-        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail));
+        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail), outputName, cmd.hasOption(merge));
     }
 
     private static Writer tryCreateFile(Path file) throws IOException {
@@ -189,40 +212,67 @@ public class Client {
                 Thread.sleep(conf.getDelay());
             }
 
+            KeypairAndCert keypairAndCert;
             try {
-                KeypairAndCert keypairAndCert = KeypairAndCert.deserialize(dis, "RSA");
-
-                try (PemWriter publicKeyWriter = new PemWriter(tryCreateFile(publicKeyFile))) {
-                    try (PemWriter privateKeyWriter =
-                            new PemWriter(tryCreateFile(privateKeyFile))) {
-                        try (PemWriter certWriter = new PemWriter(tryCreateFile(certFile))) {
-                            KeyFactory keyFactory =
-                                    KeyFactory.getInstance(keypairAndCert.getAlgorithm());
-                            X509EncodedKeySpec publicKey =
-                                    keyFactory.getKeySpec(
-                                            keypairAndCert.getPublicKey(),
-                                            X509EncodedKeySpec.class);
-                            PKCS8EncodedKeySpec privateKey =
-                                    keyFactory.getKeySpec(
-                                            keypairAndCert.getPrivateKey(),
-                                            PKCS8EncodedKeySpec.class);
-
-                            publicKeyWriter.writeObject(
-                                    new PemObject("PUBLIC KEY", publicKey.getEncoded()));
-                            privateKeyWriter.writeObject(
-                                    new PemObject("PRIVATE KEY", privateKey.getEncoded()));
-                            certWriter.writeObject(
-                                    new PemObject(
-                                            "CERTIFICATE", keypairAndCert.getCert().getEncoded()));
-                        }
-                    }
-                }
+                keypairAndCert = KeypairAndCert.deserialize(dis, "RSA");
             } catch (NoSuchAlgorithmException e) {
                 throw new RuntimeException("Unexpected exception", e);
             } catch (EOFException e) {
                 // Rethrow because generated EOFException doesn't contain any message
                 throw new EOFException("Server unexpectedly closed the connection");
             }
+
+            String outputName = conf.getOutputName();
+
+            if (conf.getMerge()) {
+                Path outputPath = Paths.get(outputName + ".pem");
+                
+                try (PemWriter pemWriter = new PemWriter(tryCreateFile(outputPath))) {
+                    writeKeypairAndCert(pemWriter, pemWriter, pemWriter, keypairAndCert);
+                }
+            } else {
+                Path publicKeyPath = Paths.get(outputName + "_pub.key");
+                Path privateKeyPath = Paths.get(outputName + ".key");
+                Path certPath = Paths.get(outputName + ".crt");
+
+                try (PemWriter publicKeyWriter = new PemWriter(tryCreateFile(publicKeyPath))) {
+                    try (PemWriter privateKeyWriter = new PemWriter(tryCreateFile(privateKeyPath))) {
+                        try (PemWriter certWriter = new PemWriter(tryCreateFile(certPath))) {
+                            writeKeypairAndCert(publicKeyWriter, privateKeyWriter, certWriter, keypairAndCert);
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private static void writeKeypairAndCert(
+            PemWriter publicKeyWriter,
+            PemWriter privateKeyWriter,
+            PemWriter certWriter,
+            KeypairAndCert keypairAndCert) throws InvalidKeySpecException, IOException {
+        KeyFactory keyFactory;
+        try {
+            keyFactory = KeyFactory.getInstance(keypairAndCert.getAlgorithm());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Unexpected exception", e);
+        }
+
+        X509EncodedKeySpec publicKey =
+                keyFactory.getKeySpec(
+                        keypairAndCert.getPublicKey(),
+                        X509EncodedKeySpec.class);
+        PKCS8EncodedKeySpec privateKey =
+                keyFactory.getKeySpec(
+                        keypairAndCert.getPrivateKey(),
+                        PKCS8EncodedKeySpec.class);
+
+        publicKeyWriter.writeObject(
+                new PemObject("PUBLIC KEY", publicKey.getEncoded()));
+        privateKeyWriter.writeObject(
+                new PemObject("PRIVATE KEY", privateKey.getEncoded()));
+        certWriter.writeObject(
+                new PemObject(
+                        "CERTIFICATE", keypairAndCert.getCert().getEncoded()));
     }
 }
