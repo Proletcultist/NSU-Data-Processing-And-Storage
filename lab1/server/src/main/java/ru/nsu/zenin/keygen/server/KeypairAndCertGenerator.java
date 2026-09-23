@@ -13,7 +13,7 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
-class KeypairAndCertGenerator {
+public class KeypairAndCertGenerator {
     private final X500Name caname;
     private final ContentSigner signer;
     private final KeyPairGenerator keyGenerator;

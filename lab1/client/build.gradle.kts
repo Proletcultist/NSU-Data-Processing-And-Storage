@@ -38,6 +38,7 @@ dependencies {
 
     implementation(project(":api"))
     implementation(project(":util"))
+    testImplementation(project(":server"))
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

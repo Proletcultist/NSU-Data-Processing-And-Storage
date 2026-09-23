@@ -7,7 +7,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import ru.nsu.zenin.keygen.api.KeypairAndCert;
 
-class KeyService {
+public class KeyService {
     private final ConcurrentMap<String, CompletableFuture<KeypairAndCert>> keypairs;
     private final KeypairAndCertGenerator generator;
     private final ExecutorService computationsExecutor;

@@ -1,6 +1,6 @@
 package ru.nsu.zenin.keygen.client;
 
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.Socket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class Client {
-    private final InetSocketAddress addr;
+    private final SocketAddress addr;
     private final boolean fail;
     private final long delay;
 

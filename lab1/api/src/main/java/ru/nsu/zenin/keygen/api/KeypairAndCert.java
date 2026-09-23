@@ -12,7 +12,11 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import org.bouncycastle.cert.X509CertificateHolder;
 import ru.nsu.zenin.api.exception.IncompatiblePublicAndPrivateKeysException;
+import lombok.Getter;
+import lombok.EqualsAndHashCode;
 
+@Getter
+@EqualsAndHashCode
 public class KeypairAndCert {
     private final String algorithm;
     private final PublicKey publicKey;
@@ -29,22 +33,6 @@ public class KeypairAndCert {
         this.privateKey = privateKey;
         this.cert = cert;
         this.algorithm = publicKey.getAlgorithm();
-    }
-
-    public String getAlgorithm() {
-        return algorithm;
-    }
-
-    public PublicKey getPublicKey() {
-        return publicKey;
-    }
-
-    public PrivateKey getPrivateKey() {
-        return privateKey;
-    }
-
-    public X509CertificateHolder getCert() {
-        return cert;
     }
 
     public static KeypairAndCert deserialize(DataInputStream dis, String algorithm)
