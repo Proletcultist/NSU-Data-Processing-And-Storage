@@ -132,8 +132,6 @@ public class App {
 
     private static void appMain(CAServerConfig config)
             throws IOException, InvalidKeySpecException, NoPemObjectException {
-        Security.addProvider(new BouncyCastleProvider());
-
         InetSocketAddress addr =
                 new InetSocketAddress(
                         config.getEndpoint().getHostString(), config.getEndpoint().getPort());

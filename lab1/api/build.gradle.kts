@@ -19,6 +19,9 @@ dependencies {
 
     // Source: https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
     implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
+
+    compileOnly("org.projectlombok:lombok:1.18.48")
+	annotationProcessor("org.projectlombok:lombok:1.18.48")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
