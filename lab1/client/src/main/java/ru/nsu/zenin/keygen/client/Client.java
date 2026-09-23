@@ -60,6 +60,14 @@ public class Client {
                     .hasArg(true)
                     .desc("Name of the keypair and certificate. Without --merge option create files <name>.key, <name>_pub.key and <name>.cert. With --merge option create file <name>.pem")
                     .build();
+    private static Option outputDir = 
+            Option.builder()
+                    .argName("outputDir")
+                    .option("d")
+                    .longOpt("directory")
+                    .hasArg(true)
+                    .desc("Path to the directory there to output keys and certificate")
+                    .build();
     private static Option merge =
             Option.builder()
                     .option("m")
@@ -80,7 +88,8 @@ public class Client {
                     .addOption(fail)
                     .addOption(help)
                     .addOption(outputName)
-                    .addOption(merge);
+                    .addOption(merge)
+                    .addOption(outputDir);
 
     private static final Validator<ClientConfig> confValidator =
             ValidatorBuilder.<ClientConfig>of()
@@ -90,6 +99,7 @@ public class Client {
                     ._object(ClientConfig::getFail, "fail", c -> c.notNull())
                     ._object(ClientConfig::getOutputName, "outputName", c -> c.notNull())
                     ._object(ClientConfig::getMerge, "merge", c -> c.notNull())
+                    ._object(ClientConfig::getOutputDir, "outputDir", c -> c.notNull())
                     .build();
 
     public static void main(String[] args)
@@ -138,8 +148,16 @@ public class Client {
         }
 
         String outputName = cmd.getOptionValue(Client.outputName);
+
         String delayRaw = cmd.getOptionValue(delay);
         long delayArg = delayRaw == null ? 0 : Long.parseLong(delayRaw);
+
+        Path outputDir;
+        if (cmd.hasOption(Client.outputDir)) {
+            outputDir = Paths.get(cmd.getOptionValue(Client.outputDir));
+        } else {
+            outputDir = Paths.get(".");
+        }
 
         InetSocketAddress addr;
         try {
@@ -163,7 +181,7 @@ public class Client {
                             + e.getMessage());
         }
 
-        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail), outputName, cmd.hasOption(merge));
+        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail), outputName, cmd.hasOption(merge), outputDir);
     }
 
     private static Writer tryCreateFile(Path file) throws IOException {
@@ -223,17 +241,18 @@ public class Client {
             }
 
             String outputName = conf.getOutputName();
+            Path outputDir = conf.getOutputDir();
 
             if (conf.getMerge()) {
-                Path outputPath = Paths.get(outputName + ".pem");
+                Path outputPath = outputDir.resolve(outputName + ".pem");
                 
                 try (PemWriter pemWriter = new PemWriter(tryCreateFile(outputPath))) {
                     writeKeypairAndCert(pemWriter, pemWriter, pemWriter, keypairAndCert);
                 }
             } else {
-                Path publicKeyPath = Paths.get(outputName + "_pub.key");
-                Path privateKeyPath = Paths.get(outputName + ".key");
-                Path certPath = Paths.get(outputName + ".crt");
+                Path publicKeyPath = outputDir.resolve(outputName + "_pub.key");
+                Path privateKeyPath = outputDir.resolve(outputName + ".key");
+                Path certPath = outputDir.resolve(outputName + ".crt");
 
                 try (PemWriter publicKeyWriter = new PemWriter(tryCreateFile(publicKeyPath))) {
                     try (PemWriter privateKeyWriter = new PemWriter(tryCreateFile(privateKeyPath))) {
