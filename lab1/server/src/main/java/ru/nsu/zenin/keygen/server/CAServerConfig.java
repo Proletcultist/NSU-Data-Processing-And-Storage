@@ -1,7 +1,7 @@
 package ru.nsu.zenin.keygen.server;
 
-import java.nio.file.Path;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 import java.time.Period;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

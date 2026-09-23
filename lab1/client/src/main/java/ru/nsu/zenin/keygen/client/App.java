@@ -3,14 +3,10 @@ package ru.nsu.zenin.keygen.client;
 import am.ik.yavi.builder.ValidatorBuilder;
 import am.ik.yavi.core.ConstraintViolations;
 import am.ik.yavi.core.Validator;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,15 +48,16 @@ public class App {
                     .hasArg(false)
                     .desc("disconnect after sending request instead of waiting for response")
                     .build();
-    private static Option outputName = 
+    private static Option outputName =
             Option.builder()
                     .argName("outputName")
                     .option("o")
                     .longOpt("output")
                     .hasArg(true)
-                    .desc("Name of the keypair and certificate. Without --merge option create files <name>.key, <name>_pub.key and <name>.cert. With --merge option create file <name>.pem")
+                    .desc(
+                            "Name of the keypair and certificate. Without --merge option create files <name>.key, <name>_pub.key and <name>.cert. With --merge option create file <name>.pem")
                     .build();
-    private static Option outputDir = 
+    private static Option outputDir =
             Option.builder()
                     .argName("outputDir")
                     .option("d")
@@ -82,7 +79,7 @@ public class App {
                     .hasArg(false)
                     .desc("display help message")
                     .build();
-    private static Options options = 
+    private static Options options =
             new Options()
                     .addOption(delay)
                     .addOption(fail)
@@ -181,7 +178,14 @@ public class App {
                             + e.getMessage());
         }
 
-        return new ClientConfig(addr, subjectName, delayArg, cmd.hasOption(fail), outputName, cmd.hasOption(merge), outputDir);
+        return new ClientConfig(
+                addr,
+                subjectName,
+                delayArg,
+                cmd.hasOption(fail),
+                outputName,
+                cmd.hasOption(merge),
+                outputDir);
     }
 
     private static Writer tryCreateFile(Path file) throws IOException {
@@ -227,7 +231,7 @@ public class App {
 
         if (conf.getMerge()) {
             Path outputPath = outputDir.resolve(outputName + ".pem");
-            
+
             try (PemWriter pemWriter = new PemWriter(tryCreateFile(outputPath))) {
                 writeKeypairAndCert(pemWriter, pemWriter, pemWriter, keypairAndCert);
             }
@@ -239,7 +243,8 @@ public class App {
             try (PemWriter publicKeyWriter = new PemWriter(tryCreateFile(publicKeyPath))) {
                 try (PemWriter privateKeyWriter = new PemWriter(tryCreateFile(privateKeyPath))) {
                     try (PemWriter certWriter = new PemWriter(tryCreateFile(certPath))) {
-                        writeKeypairAndCert(publicKeyWriter, privateKeyWriter, certWriter, keypairAndCert);
+                        writeKeypairAndCert(
+                                publicKeyWriter, privateKeyWriter, certWriter, keypairAndCert);
                     }
                 }
             }
@@ -250,7 +255,8 @@ public class App {
             PemWriter publicKeyWriter,
             PemWriter privateKeyWriter,
             PemWriter certWriter,
-            KeypairAndCert keypairAndCert) throws InvalidKeySpecException, IOException {
+            KeypairAndCert keypairAndCert)
+            throws InvalidKeySpecException, IOException {
         KeyFactory keyFactory;
         try {
             keyFactory = KeyFactory.getInstance(keypairAndCert.getAlgorithm());
@@ -259,20 +265,12 @@ public class App {
         }
 
         X509EncodedKeySpec publicKey =
-                keyFactory.getKeySpec(
-                        keypairAndCert.getPublicKey(),
-                        X509EncodedKeySpec.class);
+                keyFactory.getKeySpec(keypairAndCert.getPublicKey(), X509EncodedKeySpec.class);
         PKCS8EncodedKeySpec privateKey =
-                keyFactory.getKeySpec(
-                        keypairAndCert.getPrivateKey(),
-                        PKCS8EncodedKeySpec.class);
+                keyFactory.getKeySpec(keypairAndCert.getPrivateKey(), PKCS8EncodedKeySpec.class);
 
-        publicKeyWriter.writeObject(
-                new PemObject("PUBLIC KEY", publicKey.getEncoded()));
-        privateKeyWriter.writeObject(
-                new PemObject("PRIVATE KEY", privateKey.getEncoded()));
-        certWriter.writeObject(
-                new PemObject(
-                        "CERTIFICATE", keypairAndCert.getCert().getEncoded()));
+        publicKeyWriter.writeObject(new PemObject("PUBLIC KEY", publicKey.getEncoded()));
+        privateKeyWriter.writeObject(new PemObject("PRIVATE KEY", privateKey.getEncoded()));
+        certWriter.writeObject(new PemObject("CERTIFICATE", keypairAndCert.getCert().getEncoded()));
     }
 }

@@ -10,10 +10,10 @@ import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.bouncycastle.cert.X509CertificateHolder;
 import ru.nsu.zenin.api.exception.IncompatiblePublicAndPrivateKeysException;
-import lombok.Getter;
-import lombok.EqualsAndHashCode;
 
 @Getter
 @EqualsAndHashCode
