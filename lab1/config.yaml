@@ -1,0 +1,4 @@
+name: CN=Test Certificate, O=My Organization, C=RU
+endpoint: 127.0.0.1:1234
+certLifetime: P1Y
+privateKeyFile: private.pem
