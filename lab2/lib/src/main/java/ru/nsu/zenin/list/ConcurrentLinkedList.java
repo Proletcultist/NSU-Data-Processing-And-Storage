@@ -3,43 +3,37 @@ package ru.nsu.zenin.list;
 import lombok.Data;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.Iterator;
 import java.util.function.Consumer;
 import java.util.NoSuchElementException;
 
-// Transactional changes:
-// 1. Create an iterator
-// 2. Start transaction - prev and next nodes will be locked
-// 3. Iterate to next with adding it to the transaction - next next node will be locked, next unlocked and iterator propagated
-// 4. Nodes inside of this locked bounds flagged, so no iterator from inside of this area can start transaction, untill current transaction ends
-// 5. Do the transaction - acquire list interface to the locked part of list and do whatever you want, after that all nodes will be unlocked
 public class ConcurrentLinkedList<T> implements Iterable<T> {
-    private Node<T> sentinel;
+    private Node sentinel;
 
     public ConcurrentLinkedList() {
-        sentinel = new Node<T>();
+        sentinel = new Node();
         sentinel.setNext(sentinel);
         sentinel.setPrev(sentinel);
 
-        Lock sentNextLock = new ReentrantLock();
-        Lock sentPrevLock = new ReentrantLock();
+        ReadWriteLock sentNextLock = new ReentrantReadWriteLock();
+        ReadWriteLock sentPrevLock = new ReentrantReadWriteLock();
 
         sentinel.setNextLinkLock(sentNextLock);
         sentinel.setPrevLinkLock(sentPrevLock);
     }
 
     public void add(T val) {
-        Node<T> newNode = new Node<T>();
+        Node newNode = new Node();
         newNode.setVal(val);
 
-        sentinel.getPrevLinkLock().lock();
+        sentinel.getPrevLinkLock().writeLock().lock();
 
         newNode.setNext(sentinel);
         newNode.setPrev(sentinel.getPrev());
 
-        Lock newLock = new ReentrantLock();
+        ReadWriteLock newLock = new ReentrantReadWriteLock();
 
         newNode.setNextLinkLock(sentinel.getPrevLinkLock());
         newNode.setPrevLinkLock(newLock);
@@ -49,52 +43,94 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
         sentinel.setPrev(newNode);
 
-        sentinel.getPrevLinkLock().unlock();
+        sentinel.getPrevLinkLock().writeLock().unlock();
     }
 
-    public TransactionalIterator<T> transactionalIterator() {
-        TransactionalIterator<T> it = new TransactionalIterator<T>();
-        it.setCurrent(sentinel);
-
-        return it;
+    public TransactionalIterator transactionalIterator() {
+        return new TransactionalIterator();
     }
 
     @Override
     public Iterator<T> iterator() {
-        return transactionalIterator();
+        List<T> snapshot = new ArrayList<T>();
+
+        try (TransactionalIterator it = transactionalIterator()) {
+            while (it.hasNext()) {
+                snapshot.add(it.next());
+            }
+        }
+
+        return snapshot.iterator();
     }
 
     @Data
-    private class Node<U> {
+    private class Node {
         private Node next, prev;
-        private Lock nextLinkLock, prevLinkLock;
-        private U val;
+        private ReadWriteLock nextLinkLock, prevLinkLock;
+        private T val;
     }
 
     @Data
-    public class TransactionalIterator<U> implements Iterator<U> {
-        private Node<U> current;
-        private List<Node<U>> transaction = new ArrayList<Node<U>>();
+    public class TransactionalIterator implements Iterator<T>, AutoCloseable {
+        private Node current = sentinel;
+        private List<Node> transaction = new ArrayList<Node>();
+        private boolean closed = false;
 
-        @Override
-        public boolean hasNext() {
-            return current.getNext() != sentinel;
+        private TransactionalIterator() {
+            current.getNextLinkLock().readLock().lock();
+
+            // If there is no nodes in list - close iterator
+            if (current.getNext() == sentinel) {
+                close();
+            }
         }
 
         @Override
-        public U next() {
-            current = current.getNext();
-            if (current == sentinel) {
+        public boolean hasNext() {
+            return !closed;
+        }
+
+        @Override
+        public T next() {
+            if (closed) {
                 throw new NoSuchElementException();
+            }
+
+            Node next = current.getNext();
+
+            // Lock NextLinkLock of the next node and unlock this lock if current node
+            next.getNextLinkLock().readLock().lock();
+            current.getNextLinkLock().readLock().unlock();
+
+            // Proceed
+            current = next;
+            next = current.getNext();
+
+            // If iterator reached the end - unlock the lock (iterator is invalidated by (next == sentinel) anyway)
+            if (next == sentinel) {
+                close();
             }
 
             return current.getVal();
         }
 
-        public void addNextToTransaction() {
+        @Override
+        public void close() {
+            if (!closed) {
+                current.getNextLinkLock().readLock().unlock();
+                closed = true;
+            }
         }
 
-        public void runTransaction(Consumer<ListTransaction<U>> fun) {
+        // Adds current node to transaction (locks both of its' links)
+        // calls next() after that
+        public void addToTransaction() {
+        }
+
+        // Runs a fun with current transaction
+        // Places Iterator on the last node of transaction after fun (which possibly swaps nodes)
+        // Unlock all locks
+        public void runTransaction(Consumer<ListTransaction<T>> fun) {
             // TODO: Run fun with transaction nodes passed, unlock all locks
         }
     }
