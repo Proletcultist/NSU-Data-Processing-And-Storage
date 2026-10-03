@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "lab2"
-include("lib")
+include("lib", "test_app")
