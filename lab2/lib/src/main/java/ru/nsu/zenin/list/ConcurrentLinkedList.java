@@ -50,11 +50,15 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         return new TransactionalIterator();
     }
 
+    public ReadIterator readIterator() {
+        return new ReadIterator();
+    }
+
     @Override
     public Iterator<T> iterator() {
         List<T> snapshot = new ArrayList<T>();
 
-        try (TransactionalIterator it = transactionalIterator()) {
+        try (ReadIterator it = readIterator()) {
             while (it.hasNext()) {
                 snapshot.add(it.next());
             }
@@ -70,13 +74,18 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         private T val;
     }
 
-    @Data
-    public class TransactionalIterator implements Iterator<T>, AutoCloseable {
-        private Node current = sentinel;
-        private List<Node> transaction = new ArrayList<Node>();
+    // Iterator for consistent reading, provides a view on some valid state of the list
+    public class ReadIterator implements Iterator<T>, AutoCloseable {
+        private Node current;
         private boolean closed = false;
 
-        private TransactionalIterator() {
+        private ReadIterator() {
+            this(sentinel);
+        }
+
+        private ReadIterator(Node current) {
+            this.current = current;
+
             current.getNextLinkLock().readLock().lock();
 
             // If there is no nodes in list - close iterator
@@ -93,7 +102,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         @Override
         public T next() {
             if (closed) {
-                throw new NoSuchElementException();
+                throw new NoSuchElementException("No next value available");
             }
 
             Node next = current.getNext();
@@ -121,17 +130,94 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
                 closed = true;
             }
         }
+    }
 
-        // Adds current node to transaction (locks both of its' links)
-        // calls next() after that
+    // Iterator for transactions building, provides facility for consistent changes to some part of list
+    public class TransactionalIterator implements Iterator<T> {
+        private Node current;
+        private ListTransaction transaction = new ListTransaction();
+
+        private TransactionalIterator() {
+            this(sentinel);
+        }
+
+        private TransactionalIterator(Node current) {
+            this.current = current;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return current.getNext() != sentinel;
+        }
+
+        @Override
+        public T next() {
+            current = current.getNext();
+            if (current == sentinel) {
+                throw new NoSuchElementException();
+            }
+
+            return current.getVal();
+        }
+
+        // Adds node with last returned element to transaction
         public void addToTransaction() {
+            if (current == sentinel) {
+                throw new IllegalStateException("Cannot add to transaction before next() method called");
+            }
+
+            transaction.addToTransaction(current);
         }
 
-        // Runs a fun with current transaction
-        // Places Iterator on the last node of transaction after fun (which possibly swaps nodes)
-        // Unlock all locks
-        public void runTransaction(Consumer<ListTransaction<T>> fun) {
-            // TODO: Run fun with transaction nodes passed, unlock all locks
+        // Gives ownership over transaction built with this iterator
+        public ListTransaction runTransaction() {
+            ListTransaction ret = transaction;
+            transaction = new ListTransaction();
+
+            return ret;
         }
+    }
+
+    // TODO: Implement as non-circular double-linked list, not array list
+    // Continious part of the list with mutually exclusive access for transaction owner
+    public class ListTransaction implements AutoCloseable {
+        private List<Node> nodes = new ArrayList<Node>();
+
+        void addToTransaction(Node node) {
+            if (nodes.isEmpty()) {
+                node.getPrevLinkLock().writeLock().lock();
+                node.getNextLinkLock().writeLock().lock();
+
+                nodes.add(node);
+            } else if(node == nodes.get(nodes.size() - 1).getNext()) {
+                node.getNextLinkLock().writeLock().lock();
+
+                nodes.add(node);
+            } else {
+                throw new IllegalStateException("Cannot add non-consecutive element to transaction");
+            }
+        }
+
+        // Unlock all nodes
+        @Override
+        public void close() {
+        }
+
+        public T get(int index) {
+            Node node = nodes.get(index);
+            return node == null ? null : node.getVal();
+        }
+        
+        public void swap(int fst, int snd) {
+        }
+
+        public TransactionalIterator transactionalIterator(int index) {
+            return new TransactionalIterator(nodes.get(index));
+        }
+
+        public ReadIterator readIterator(int index) {
+            return new ReadIterator(nodes.get(index));
+        }
+
     }
 }
