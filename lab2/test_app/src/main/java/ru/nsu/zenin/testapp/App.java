@@ -2,26 +2,90 @@ package ru.nsu.zenin.testapp;
 
 import ru.nsu.zenin.list.ConcurrentLinkedList;
 import ru.nsu.zenin.sorting.ConcurrentListSorter;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import java.util.Scanner;
 
+// TODO: Add delay options, add possibility to choose implementation
 public class App {
-    public static void main(String[] args) throws Exception {
-        ConcurrentLinkedList<Integer> li = new ConcurrentLinkedList<Integer>();
+    private static Option jobs =
+            Option.builder()
+                    .argName("workerThreads")
+                    .option("j")
+                    .longOpt("jobs")
+                    .hasArg(true)
+                    .desc("sorter threads amount")
+                    .build();
+    private static Option help =
+            Option.builder()
+                    .option("h")
+                    .longOpt("help")
+                    .hasArg(false)
+                    .desc("display help message")
+                    .build();
+    private static Options options = new Options().addOption(jobs).addOption(help);
 
-        li.add(3);
-        li.add(2);
-        li.add(1);
+    public static void main(String[] args) {
+        try {
+            CommandLineParser parser = new DefaultParser();
+            CommandLine cmd = parser.parse(options, args);
 
-        for (Integer i : li) {
-            System.out.println(i);
+            // If there is --help option - display help and exit
+            if (cmd.hasOption(help)) {
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp("test_app [options]", options);
+                return;
+            }
+
+            AppConfig conf = parseArgs(cmd);
+
+            appMain(conf);
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            System.exit(-1);
+        }
+    }
+
+    private static AppConfig parseArgs(CommandLine cmd) throws ParseException {
+        AppConfig conf = new AppConfig();
+
+        if (cmd.hasOption(jobs)) {
+            String workerThreadsRaw = cmd.getOptionValue(jobs);
+            int workerThreads = Integer.parseInt(workerThreadsRaw);
+            conf.setWorkerThreads(workerThreads);
+        } else if (conf.getWorkerThreads() == null) {
+            conf.setWorkerThreads(Runtime.getRuntime().availableProcessors());
         }
 
-        Thread sorter = new Thread(new ConcurrentListSorter<Integer>(li));
-        sorter.start();
+        return conf;
+    }
 
-        Thread.sleep(100);
+    private static void appMain(AppConfig conf) {
+        ConcurrentLinkedList<String> li = new ConcurrentLinkedList<String>();
 
-        for (Integer i : li) {
-            System.out.println(i);
+        ThreadGroup sorters = new ThreadGroup("Sorters");
+        for (int i = 0; i < conf.getWorkerThreads(); i++) {
+            Thread sorter = new Thread(sorters, new ConcurrentListSorter<String>(li));
+            sorter.start();
+        }
+
+        Scanner scanner = new Scanner(System.in);
+
+        while (!Thread.interrupted()) {
+            String line = scanner.nextLine();
+
+            if (line.isEmpty()) {
+                for (String s : li) {
+                    System.out.println(s);
+                }
+            } else {
+                li.add(line);
+            }
         }
     }
 }
