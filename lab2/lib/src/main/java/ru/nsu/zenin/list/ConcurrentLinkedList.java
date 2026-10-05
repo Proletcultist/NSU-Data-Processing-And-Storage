@@ -35,6 +35,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
         ReadWriteLock newLock = new ReentrantReadWriteLock();
 
+        // NOTE: Problem occurs when some thread tries to lock the lock and then this lock change its' position relative to the sentinel.getPrev()
         newNode.setNextLinkLock(sentinel.getPrevLinkLock());
         newNode.setPrevLinkLock(newLock);
 
@@ -217,12 +218,12 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         public void close() {
             if (!closed) {
                 Node cursor;
-                for (cursor = first; cursor != last; cursor = cursor.getNext()) {
-                    cursor.getPrevLinkLock().writeLock().unlock();
+                for (cursor = last; cursor != first; cursor = cursor.getPrev()) {
+                    cursor.getNextLinkLock().writeLock().unlock();
                 }
                 if (cursor != null) {
-                    cursor.getPrevLinkLock().writeLock().unlock();
                     cursor.getNextLinkLock().writeLock().unlock();
+                    cursor.getPrevLinkLock().writeLock().unlock();
                 }
 
                 closed = true;
