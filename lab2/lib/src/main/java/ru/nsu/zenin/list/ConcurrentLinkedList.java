@@ -209,7 +209,6 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             size++;
         }
 
-        // TODO: Unlock all nodes
         @Override
         public void close() {
             if (!closed) {
@@ -234,8 +233,60 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             return size;
         }
         
-        // TODO: Implement
         public void swap(int fst, int snd) {
+            if (fst == snd) {
+                return;
+            } else if (snd < fst) {
+                int tmp = fst;
+                fst = snd;
+                snd = tmp;
+            }
+
+            Node fstNode = getNode(fst);
+            Node sndNode = getNode(snd);
+
+            Node fstNodePrev = fstNode.getPrev();
+            Node fstNodeNext = fstNode.getNext();
+
+            Node sndNodePrev = sndNode.getPrev();
+            Node sndNodeNext = sndNode.getNext();
+
+            if (fstNodeNext == sndNode) {
+                fstNode.setPrev(sndNode);
+                fstNode.setNext(sndNodeNext);
+                sndNode.setPrev(fstNodePrev);
+                sndNode.setNext(fstNode);
+
+                fstNodePrev.setNext(sndNode);
+                sndNodeNext.setPrev(fstNode);
+
+                fstNode.setPrevLinkLock(fstNode.getNextLinkLock());
+                fstNode.setNextLinkLock(sndNodeNext.getPrevLinkLock());
+                sndNode.setNextLinkLock(sndNode.getPrevLinkLock());
+                sndNode.setPrevLinkLock(fstNodePrev.getNextLinkLock());
+            } else {
+                fstNode.setPrev(sndNodePrev);
+                fstNode.setNext(sndNodeNext);
+                sndNode.setPrev(fstNodePrev);
+                sndNode.setNext(fstNodeNext);
+
+                fstNodePrev.setNext(sndNode);
+                fstNodeNext.setPrev(sndNode);
+                sndNodePrev.setNext(fstNode);
+                sndNodeNext.setPrev(fstNode);
+
+                fstNode.setPrevLinkLock(sndNodePrev.getNextLinkLock());
+                fstNode.setNextLinkLock(sndNodeNext.getPrevLinkLock());
+                sndNode.setPrevLinkLock(fstNodePrev.getNextLinkLock());
+                sndNode.setNextLinkLock(fstNodeNext.getPrevLinkLock());
+            }
+
+            if (first == fstNode) {
+                first = sndNode;
+            }
+            if (last == sndNode) {
+                last = fstNode;
+            }
         }
 
         public TransactionalIterator transactionalIterator(int index) {
