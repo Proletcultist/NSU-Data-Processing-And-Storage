@@ -134,7 +134,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
     // Iterator for transactions building, provides facility for consistent changes to some part of list
     public class TransactionalIterator implements Iterator<T> {
-        private Node current;
+        private Node current, next;
         private ListTransaction transaction = new ListTransaction();
 
         private TransactionalIterator() {
@@ -143,19 +143,22 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
         private TransactionalIterator(Node current) {
             this.current = current;
+            this.next = current.getNext();
         }
 
         @Override
         public boolean hasNext() {
-            return current.getNext() != sentinel;
+            return next != sentinel;
         }
 
         @Override
         public T next() {
-            current = current.getNext();
-            if (current == sentinel) {
-                throw new NoSuchElementException();
+            if (next == sentinel) {
+                throw new NoSuchElementException("No next value available");
             }
+
+            current = next;
+            next = current.getNext();
 
             return current.getVal();
         }
