@@ -181,45 +181,86 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         }
     }
 
-    // TODO: Implement as non-circular double-linked list, not array list
     // Continious part of the list with mutually exclusive access for transaction owner
     public class ListTransaction implements AutoCloseable {
-        private List<Node> nodes = new ArrayList<Node>();
+        private Node first = null, last = null;
+        private int size = 0;
+        private boolean closed = false;
 
         void addToTransaction(Node node) {
-            if (nodes.isEmpty()) {
+            if (closed) {
+                throw new IllegalStateException("Cannot add to closed transaction");
+            }
+
+            if (last == null) {
                 node.getPrevLinkLock().writeLock().lock();
                 node.getNextLinkLock().writeLock().lock();
 
-                nodes.add(node);
-            } else if(node == nodes.get(nodes.size() - 1).getNext()) {
+                first = node;
+                last = node;
+            } else if(node == last.getNext()) {
                 node.getNextLinkLock().writeLock().lock();
 
-                nodes.add(node);
+                last = node;
             } else {
-                throw new IllegalStateException("Cannot add non-consecutive element to transaction");
+                throw new IllegalArgumentException("Cannot add non-consecutive element to transaction");
+            }
+
+            size++;
+        }
+
+        // TODO: Unlock all nodes
+        @Override
+        public void close() {
+            if (!closed) {
+
+                Node cursor;
+                for (cursor = first; cursor != last; cursor = cursor.getNext()) {
+                    cursor.getPrevLinkLock().writeLock().unlock();
+                }
+                if (cursor != null) {
+                    cursor.getNextLinkLock().writeLock().unlock();
+                }
+
+                closed = true;
             }
         }
 
-        // Unlock all nodes
-        @Override
-        public void close() {
+        public T get(int index) {
+            return getNode(index).getVal();
         }
 
-        public T get(int index) {
-            Node node = nodes.get(index);
-            return node == null ? null : node.getVal();
+        public int size() {
+            return size;
         }
         
+        // TODO: Implement
         public void swap(int fst, int snd) {
         }
 
         public TransactionalIterator transactionalIterator(int index) {
-            return new TransactionalIterator(nodes.get(index));
+            return new TransactionalIterator(getNode(index));
         }
 
         public ReadIterator readIterator(int index) {
-            return new ReadIterator(nodes.get(index));
+            return new ReadIterator(getNode(index));
+        }
+
+        private Node getNode(int index) {
+            if (closed) {
+                throw new IllegalStateException("Cannot get from closed transaction");
+            }
+
+            if (index < 0 || index >= size) {
+                throw new IndexOutOfBoundsException("Index out of bounds");
+            }
+
+            Node cursor = first;
+            while (index-- > 0) {
+                cursor = cursor.getNext();
+            }
+
+            return cursor;
         }
 
     }
