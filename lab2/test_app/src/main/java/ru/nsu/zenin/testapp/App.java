@@ -1,37 +1,24 @@
 package ru.nsu.zenin.testapp;
 
 import ru.nsu.zenin.list.ConcurrentLinkedList;
+import ru.nsu.zenin.sorting.ConcurrentListSorter;
 
 public class App {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         ConcurrentLinkedList<Integer> li = new ConcurrentLinkedList<Integer>();
 
-        li.add(1);
+        li.add(3);
         li.add(2);
+        li.add(1);
 
         for (Integer i : li) {
             System.out.println(i);
-            if (i.equals(1)) {
-                li.add(3);
-            }
         }
 
-        ConcurrentLinkedList.TransactionalIterator it = li.transactionalIterator();
+        Thread sorter = new Thread(new ConcurrentListSorter<Integer>(li));
+        sorter.start();
 
-        it.next();
-        it.addToTransaction();
-        it.next();
-        it.addToTransaction();
-        it.next();
-        it.addToTransaction();
-
-        System.out.println("");
-
-        try (ConcurrentLinkedList.ListTransaction trans = it.runTransaction()) {
-            trans.swap(1, 0);
-        }
-
-        System.out.println("");
+        Thread.sleep(100);
 
         for (Integer i : li) {
             System.out.println(i);
