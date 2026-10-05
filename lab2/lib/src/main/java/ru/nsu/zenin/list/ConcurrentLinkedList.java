@@ -163,6 +163,10 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             return current.getVal();
         }
 
+        public int getTransactionSize() {
+            return transaction.size();
+        }
+
         // Adds node with last returned element to transaction
         public void addToTransaction() {
             if (current == sentinel) {
@@ -212,12 +216,12 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         @Override
         public void close() {
             if (!closed) {
-
                 Node cursor;
                 for (cursor = first; cursor != last; cursor = cursor.getNext()) {
                     cursor.getPrevLinkLock().writeLock().unlock();
                 }
                 if (cursor != null) {
+                    cursor.getPrevLinkLock().writeLock().unlock();
                     cursor.getNextLinkLock().writeLock().unlock();
                 }
 
