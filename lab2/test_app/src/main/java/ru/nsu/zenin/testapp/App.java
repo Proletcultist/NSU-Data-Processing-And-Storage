@@ -11,9 +11,15 @@ public class App {
 
         for (Integer i : li) {
             System.out.println(i);
-            if (i.equals(2)) {
+            if (i.equals(1)) {
                 li.add(3);
             }
+        }
+
+        System.out.println("");
+
+        for (Integer i : li) {
+            System.out.println(i);
         }
     }
 }
