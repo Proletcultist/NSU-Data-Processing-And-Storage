@@ -16,6 +16,21 @@ public class App {
             }
         }
 
+        ConcurrentLinkedList.TransactionalIterator it = li.transactionalIterator();
+
+        it.next();
+        it.addToTransaction();
+        it.next();
+        it.addToTransaction();
+        it.next();
+        it.addToTransaction();
+
+        System.out.println("");
+
+        try (ConcurrentLinkedList.ListTransaction trans = it.runTransaction()) {
+            trans.swap(1, 0);
+        }
+
         System.out.println("");
 
         for (Integer i : li) {
