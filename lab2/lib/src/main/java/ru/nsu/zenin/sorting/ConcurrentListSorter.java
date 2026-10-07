@@ -11,7 +11,7 @@ public class ConcurrentListSorter<T extends Comparable<T>> implements Runnable {
     @Override
     public void run() {
         while (!Thread.interrupted()) {
-            ConcurrentLinkedList<T>.TransactionBuilder it = list.transactionBuilder();
+            ConcurrentLinkedList<T>.TransactionIterator it = list.transactionIterator();
 
             try {
                 while (true) {
@@ -28,7 +28,7 @@ public class ConcurrentListSorter<T extends Comparable<T>> implements Runnable {
 
                         // Swap transactional iterator with new
                         it.close();
-                        it = trans.transactionBuilder(0);
+                        it = trans.transactionIterator(0);
                         // TODO: Add optional delay
                     }
                 }

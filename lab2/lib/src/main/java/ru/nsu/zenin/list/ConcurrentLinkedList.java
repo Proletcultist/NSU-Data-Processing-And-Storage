@@ -45,8 +45,8 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         frontSentinel.getNodeLock().writeLock().unlock();
     }
 
-    public TransactionBuilder transactionBuilder() {
-        return new TransactionBuilder();
+    public TransactionIterator transactionIterator() {
+        return new TransactionIterator();
     }
 
     public ReadIterator readIterator() {
@@ -118,16 +118,16 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
     }
 
     // Iterator-like object for transactions building, provides facility for consistent changes to some part of the list
-    public class TransactionBuilder implements AutoCloseable {
+    public class TransactionIterator implements AutoCloseable {
         private Node current;
         private ListTransaction transaction = new ListTransaction();
         private boolean buildingTrans = false;
 
-        private TransactionBuilder() {
+        private TransactionIterator() {
             this(frontSentinel);
         }
 
-        private TransactionBuilder(Node current) {
+        private TransactionIterator(Node current) {
             this.current = current;
         }
 
@@ -288,8 +288,8 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             }
         }
 
-        public TransactionBuilder transactionBuilder(int index) {
-            return new TransactionBuilder(getNode(index));
+        public TransactionIterator transactionIterator(int index) {
+            return new TransactionIterator(getNode(index));
         }
 
         public ReadIterator readIterator(int index) {
