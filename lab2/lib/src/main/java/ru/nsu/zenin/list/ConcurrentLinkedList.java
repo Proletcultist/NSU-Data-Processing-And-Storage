@@ -1,13 +1,12 @@
 package ru.nsu.zenin.list;
 
-import lombok.Data;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.Iterator;
-import java.util.function.Consumer;
-import java.util.NoSuchElementException;
+import lombok.Data;
 
 public class ConcurrentLinkedList<T> implements Iterable<T> {
     private final Node frontSentinel;
@@ -117,7 +116,8 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         }
     }
 
-    // Iterator-like object for transactions building, provides facility for consistent changes to some part of the list
+    // Iterator-like object for transactions building, provides facility for consistent changes to
+    // some part of the list
     public class TransactionIterator implements AutoCloseable {
         private Node current;
         private ListTransaction transaction = new ListTransaction();
@@ -156,7 +156,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             return transaction.size();
         }
 
-        // After that method call 
+        // After that method call
         // all elements returned by subsequent next() calls will be added to the transaction
         public void startTransaction() {
             buildingTrans = true;
@@ -200,7 +200,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
                 first = node;
                 last = node;
-            } else if(prev == last) {
+            } else if (prev == last) {
                 node = prev.getNext();
                 if (node == backSentinel) {
                     throw new NoSuchElementException("No next value available");
@@ -210,7 +210,8 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
                 last = node;
             } else {
-                throw new IllegalArgumentException("Cannot add non-consecutive element to transaction");
+                throw new IllegalArgumentException(
+                        "Cannot add non-consecutive element to transaction");
             }
 
             size++;
@@ -249,7 +250,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
                 throw new RuntimeException("Unexpected exception", e);
             }
         }
-        
+
         public void swap(int fst, int snd, long delay) throws InterruptedException {
             if (fst == snd) {
                 return;
@@ -330,6 +331,5 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
             return cursor;
         }
-
     }
 }

@@ -1,9 +1,9 @@
 package ru.nsu.zenin.testapp;
 
-import ru.nsu.zenin.list.ConcurrentLinkedList;
-import ru.nsu.zenin.sorting.ConcurrentListSorter;
-import ru.nsu.zenin.sorting.SyncronizedListSorter;
-import ru.nsu.zenin.testapp.exception.UnknownSorterImplementationException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Scanner;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -11,10 +11,10 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import java.util.Scanner;
-import java.util.Collections;
-import java.util.List;
-import java.util.ArrayList;
+import ru.nsu.zenin.list.ConcurrentLinkedList;
+import ru.nsu.zenin.sorting.ConcurrentListSorter;
+import ru.nsu.zenin.sorting.SyncronizedListSorter;
+import ru.nsu.zenin.testapp.exception.UnknownSorterImplementationException;
 
 public class App {
     private static Option jobs =
@@ -56,7 +56,13 @@ public class App {
                     .hasArg(false)
                     .desc("display help message")
                     .build();
-    private static Options options = new Options().addOption(jobs).addOption(inDelay).addOption(outDelay).addOption(implementation).addOption(help);
+    private static Options options =
+            new Options()
+                    .addOption(jobs)
+                    .addOption(inDelay)
+                    .addOption(outDelay)
+                    .addOption(implementation)
+                    .addOption(help);
 
     public static void main(String[] args) {
         try {
@@ -79,7 +85,8 @@ public class App {
         }
     }
 
-    private static AppConfig parseArgs(CommandLine cmd) throws ParseException, UnknownSorterImplementationException {
+    private static AppConfig parseArgs(CommandLine cmd)
+            throws ParseException, UnknownSorterImplementationException {
         AppConfig conf = new AppConfig();
 
         if (cmd.hasOption(implementation)) {
@@ -132,7 +139,11 @@ public class App {
 
         ThreadGroup sorters = new ThreadGroup("Sorters");
         for (int i = 0; i < conf.getWorkerThreads(); i++) {
-            Thread sorter = new Thread(sorters, new SyncronizedListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
+            Thread sorter =
+                    new Thread(
+                            sorters,
+                            new SyncronizedListSorter<String>(
+                                    li, conf.getOutDelay(), conf.getInDelay()));
             sorter.setDaemon(true);
             sorter.start();
         }
@@ -159,7 +170,11 @@ public class App {
 
         ThreadGroup sorters = new ThreadGroup("Sorters");
         for (int i = 0; i < conf.getWorkerThreads(); i++) {
-            Thread sorter = new Thread(sorters, new ConcurrentListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
+            Thread sorter =
+                    new Thread(
+                            sorters,
+                            new ConcurrentListSorter<String>(
+                                    li, conf.getOutDelay(), conf.getInDelay()));
             sorter.setDaemon(true);
             sorter.start();
         }
