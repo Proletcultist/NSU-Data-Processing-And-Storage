@@ -133,12 +133,13 @@ public class App {
         ThreadGroup sorters = new ThreadGroup("Sorters");
         for (int i = 0; i < conf.getWorkerThreads(); i++) {
             Thread sorter = new Thread(sorters, new SyncronizedListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
+            sorter.setDaemon(true);
             sorter.start();
         }
 
         Scanner scanner = new Scanner(System.in);
 
-        while (!Thread.interrupted()) {
+        while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
 
             if (line.isEmpty()) {
@@ -159,12 +160,13 @@ public class App {
         ThreadGroup sorters = new ThreadGroup("Sorters");
         for (int i = 0; i < conf.getWorkerThreads(); i++) {
             Thread sorter = new Thread(sorters, new ConcurrentListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
+            sorter.setDaemon(true);
             sorter.start();
         }
 
         Scanner scanner = new Scanner(System.in);
 
-        while (!Thread.interrupted()) {
+        while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
 
             if (line.isEmpty()) {
