@@ -11,4 +11,6 @@ import lombok.Setter;
 @Setter
 class AppConfig {
     private Integer workerThreads;
+    private Long inDelay, outDelay;
+    private SorterImplementation implementation;
 }

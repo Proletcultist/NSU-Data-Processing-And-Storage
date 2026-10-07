@@ -7,7 +7,7 @@ import ru.nsu.zenin.list.ConcurrentLinkedList;
 @RequiredArgsConstructor
 public class ConcurrentListSorter<T extends Comparable<T>> implements Runnable {
     private final ConcurrentLinkedList<T> list;
-    private final long outDelay = 0, inDelay = 0;
+    private final long outDelay, inDelay;
 
     @Override
     public void run() {

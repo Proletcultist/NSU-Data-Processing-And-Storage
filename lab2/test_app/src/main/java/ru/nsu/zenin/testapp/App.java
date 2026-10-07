@@ -2,6 +2,8 @@ package ru.nsu.zenin.testapp;
 
 import ru.nsu.zenin.list.ConcurrentLinkedList;
 import ru.nsu.zenin.sorting.ConcurrentListSorter;
+import ru.nsu.zenin.sorting.SyncronizedListSorter;
+import ru.nsu.zenin.testapp.exception.UnknownSorterImplementationException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -10,8 +12,10 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import java.util.Scanner;
+import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 
-// TODO: Add delay options, add possibility to choose implementation
 public class App {
     private static Option jobs =
             Option.builder()
@@ -21,6 +25,30 @@ public class App {
                     .hasArg(true)
                     .desc("sorter threads amount")
                     .build();
+    private static Option inDelay =
+            Option.builder()
+                    .argName("n")
+                    .option("i")
+                    .longOpt("in-delay")
+                    .hasArg(true)
+                    .desc("delay inside sorting step")
+                    .build();
+    private static Option outDelay =
+            Option.builder()
+                    .argName("n")
+                    .option("o")
+                    .longOpt("out-delay")
+                    .hasArg(true)
+                    .desc("delay between sorting steps")
+                    .build();
+    private static Option implementation =
+            Option.builder()
+                    .argName("n")
+                    .option("s")
+                    .longOpt("sorter-impl")
+                    .hasArg(true)
+                    .desc("implementation of sorter. Either \"concurrent\" or \"synchronized\"")
+                    .build();
     private static Option help =
             Option.builder()
                     .option("h")
@@ -28,7 +56,7 @@ public class App {
                     .hasArg(false)
                     .desc("display help message")
                     .build();
-    private static Options options = new Options().addOption(jobs).addOption(help);
+    private static Options options = new Options().addOption(jobs).addOption(inDelay).addOption(outDelay).addOption(implementation).addOption(help);
 
     public static void main(String[] args) {
         try {
@@ -51,8 +79,31 @@ public class App {
         }
     }
 
-    private static AppConfig parseArgs(CommandLine cmd) throws ParseException {
+    private static AppConfig parseArgs(CommandLine cmd) throws ParseException, UnknownSorterImplementationException {
         AppConfig conf = new AppConfig();
+
+        if (cmd.hasOption(implementation)) {
+            String implementationRaw = cmd.getOptionValue(implementation);
+            conf.setImplementation(SorterImplementation.fromString(implementationRaw));
+        } else {
+            conf.setImplementation(SorterImplementation.CONCURRENT_LIST);
+        }
+
+        if (cmd.hasOption(inDelay)) {
+            String inDelayRaw = cmd.getOptionValue(inDelay);
+            long inDelayArg = Long.parseLong(inDelayRaw);
+            conf.setInDelay(inDelayArg);
+        } else {
+            conf.setInDelay(0L);
+        }
+
+        if (cmd.hasOption(outDelay)) {
+            String outDelayRaw = cmd.getOptionValue(outDelay);
+            long outDelayArg = Long.parseLong(outDelayRaw);
+            conf.setOutDelay(outDelayArg);
+        } else {
+            conf.setOutDelay(0L);
+        }
 
         if (cmd.hasOption(jobs)) {
             String workerThreadsRaw = cmd.getOptionValue(jobs);
@@ -66,11 +117,48 @@ public class App {
     }
 
     private static void appMain(AppConfig conf) {
+        switch (conf.getImplementation()) {
+            case SorterImplementation.CONCURRENT_LIST:
+                concurrentImpementation(conf);
+                break;
+            case SorterImplementation.SYNCHRONIZED_LIST:
+                syncronizedImpementation(conf);
+                break;
+        }
+    }
+
+    private static void syncronizedImpementation(AppConfig conf) {
+        List<String> li = Collections.synchronizedList(new ArrayList<String>());
+
+        ThreadGroup sorters = new ThreadGroup("Sorters");
+        for (int i = 0; i < conf.getWorkerThreads(); i++) {
+            Thread sorter = new Thread(sorters, new SyncronizedListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
+            sorter.start();
+        }
+
+        Scanner scanner = new Scanner(System.in);
+
+        while (!Thread.interrupted()) {
+            String line = scanner.nextLine();
+
+            if (line.isEmpty()) {
+                synchronized (li) {
+                    for (String s : li) {
+                        System.out.println(s);
+                    }
+                }
+            } else {
+                li.add(line);
+            }
+        }
+    }
+
+    private static void concurrentImpementation(AppConfig conf) {
         ConcurrentLinkedList<String> li = new ConcurrentLinkedList<String>();
 
         ThreadGroup sorters = new ThreadGroup("Sorters");
         for (int i = 0; i < conf.getWorkerThreads(); i++) {
-            Thread sorter = new Thread(sorters, new ConcurrentListSorter<String>(li));
+            Thread sorter = new Thread(sorters, new ConcurrentListSorter<String>(li, conf.getOutDelay(), conf.getInDelay()));
             sorter.start();
         }
 
