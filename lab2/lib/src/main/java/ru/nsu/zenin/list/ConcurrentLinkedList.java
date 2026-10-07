@@ -241,8 +241,16 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         public int size() {
             return size;
         }
-        
+
         public void swap(int fst, int snd) {
+            try {
+                swap(fst, snd, 0);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Unexpected exception", e);
+            }
+        }
+        
+        public void swap(int fst, int snd, long delay) throws InterruptedException {
             if (fst == snd) {
                 return;
             } else if (snd < fst) {
@@ -263,6 +271,11 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             if (fstNodeNext == sndNode) {
                 fstNode.setPrev(sndNode);
                 fstNode.setNext(sndNodeNext);
+
+                if (delay > 0) {
+                    Thread.sleep(delay);
+                }
+
                 sndNode.setPrev(fstNodePrev);
                 sndNode.setNext(fstNode);
 
@@ -271,6 +284,11 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             } else {
                 fstNode.setPrev(sndNodePrev);
                 fstNode.setNext(sndNodeNext);
+
+                if (delay > 0) {
+                    Thread.sleep(delay);
+                }
+
                 sndNode.setPrev(fstNodePrev);
                 sndNode.setNext(fstNodeNext);
 
