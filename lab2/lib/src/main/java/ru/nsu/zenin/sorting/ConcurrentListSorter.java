@@ -1,6 +1,7 @@
 package ru.nsu.zenin.sorting;
 
 import lombok.RequiredArgsConstructor;
+import java.util.NoSuchElementException;
 import ru.nsu.zenin.list.ConcurrentLinkedList;
 
 @RequiredArgsConstructor
@@ -10,27 +11,31 @@ public class ConcurrentListSorter<T extends Comparable<T>> implements Runnable {
     @Override
     public void run() {
         while (!Thread.interrupted()) {
-            ConcurrentLinkedList<T>.TransactionalIterator it = list.transactionalIterator();
+            ConcurrentLinkedList<T>.TransactionBuilder it = list.transactionBuilder();
 
-            while (it.hasNext()) {
-                T val = it.next();
-                it.addToTransaction();
+            try {
+                while (true) {
+                    it.startTransaction();
 
-                if (it.getTransactionSize() == 2) {
+                    it.next();
+                    it.next();
+
                     try (ConcurrentLinkedList<T>.ListTransaction trans = it.runTransaction()) {
                         if (trans.get(0).compareTo(trans.get(1)) > 0) {
                             // TODO: Use swap with delay
                             trans.swap(0, 1);
                         }
 
-                        it = trans.transactionalIterator(0);
+                        // Swap transactional iterator with new
+                        it.close();
+                        it = trans.transactionBuilder(0);
                         // TODO: Add optional delay
                     }
                 }
+            } catch (NoSuchElementException ignore) {}
+            finally {
+                it.close();
             }
-
-            // Close transaction if there is any
-            it.runTransaction().close();
         }
     }
 }

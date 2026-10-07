@@ -10,45 +10,43 @@ import java.util.function.Consumer;
 import java.util.NoSuchElementException;
 
 public class ConcurrentLinkedList<T> implements Iterable<T> {
-    private Node sentinel;
+    private final Node frontSentinel;
+    private Node backSentinel;
 
     public ConcurrentLinkedList() {
-        sentinel = new Node();
-        sentinel.setNext(sentinel);
-        sentinel.setPrev(sentinel);
+        backSentinel = new Node(new ReentrantReadWriteLock());
+        frontSentinel = new Node(new ReentrantReadWriteLock());
 
-        ReadWriteLock sentNextLock = new ReentrantReadWriteLock();
-        ReadWriteLock sentPrevLock = new ReentrantReadWriteLock();
-
-        sentinel.setNextLinkLock(sentNextLock);
-        sentinel.setPrevLinkLock(sentPrevLock);
+        frontSentinel.setNext(backSentinel);
+        frontSentinel.setPrev(backSentinel);
+        backSentinel.setNext(frontSentinel);
+        backSentinel.setPrev(frontSentinel);
     }
 
     public void add(T val) {
-        Node newNode = new Node();
-        newNode.setVal(val);
+        Node newNode = new Node(new ReentrantReadWriteLock());
 
-        sentinel.getPrevLinkLock().writeLock().lock();
+        frontSentinel.getNodeLock().writeLock().lock();
+        backSentinel.getNodeLock().writeLock().lock();
 
-        newNode.setNext(sentinel);
-        newNode.setPrev(sentinel.getPrev());
+        // Add new node between backSentinel and frontSentinel
+        newNode.setNext(frontSentinel);
+        newNode.setPrev(backSentinel);
 
-        ReadWriteLock newLock = new ReentrantReadWriteLock();
+        backSentinel.setNext(newNode);
+        frontSentinel.setPrev(newNode);
 
-        // NOTE: Problem occurs when some thread tries to lock the lock and then this lock change its' position relative to the sentinel.getPrev()
-        newNode.setNextLinkLock(sentinel.getPrevLinkLock());
-        newNode.setPrevLinkLock(newLock);
+        // Now newNode is backSentinel
+        backSentinel.setVal(val);
+        Node oldBackSentinel = backSentinel;
+        backSentinel = newNode;
 
-        sentinel.getPrev().setNext(newNode);
-        sentinel.getPrev().setNextLinkLock(newLock);
-
-        sentinel.setPrev(newNode);
-
-        sentinel.getPrevLinkLock().writeLock().unlock();
+        oldBackSentinel.getNodeLock().writeLock().unlock();
+        frontSentinel.getNodeLock().writeLock().unlock();
     }
 
-    public TransactionalIterator transactionalIterator() {
-        return new TransactionalIterator();
+    public TransactionBuilder transactionBuilder() {
+        return new TransactionBuilder();
     }
 
     public ReadIterator readIterator() {
@@ -71,7 +69,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
     @Data
     private class Node {
         private Node next, prev;
-        private ReadWriteLock nextLinkLock, prevLinkLock;
+        private final ReadWriteLock nodeLock;
         private T val;
     }
 
@@ -81,86 +79,76 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         private boolean closed = false;
 
         private ReadIterator() {
-            this(sentinel);
+            this(frontSentinel);
         }
 
         private ReadIterator(Node current) {
             this.current = current;
 
-            current.getNextLinkLock().readLock().lock();
-
-            // If there is no nodes in list - close iterator
-            if (current.getNext() == sentinel) {
-                close();
-            }
+            current.getNodeLock().readLock().lock();
         }
 
         @Override
         public boolean hasNext() {
-            return !closed;
+            return !closed && current.getNext() != backSentinel;
         }
 
         @Override
         public T next() {
-            if (closed) {
+            Node next = current.getNext();
+
+            if (closed || next == backSentinel) {
                 throw new NoSuchElementException("No next value available");
             }
 
-            Node next = current.getNext();
+            next.getNodeLock().readLock().lock();
+            current.getNodeLock().readLock().unlock();
 
-            // Lock NextLinkLock of the next node and unlock this lock if current node
-            next.getNextLinkLock().readLock().lock();
-            current.getNextLinkLock().readLock().unlock();
-
-            // Proceed
             current = next;
-            next = current.getNext();
-
-            // If iterator reached the end - unlock the lock (iterator is invalidated by (next == sentinel) anyway)
-            if (next == sentinel) {
-                close();
-            }
-
             return current.getVal();
         }
 
         @Override
         public void close() {
             if (!closed) {
-                current.getNextLinkLock().readLock().unlock();
+                current.getNodeLock().readLock().unlock();
                 closed = true;
             }
         }
     }
 
-    // Iterator for transactions building, provides facility for consistent changes to some part of list
-    public class TransactionalIterator implements Iterator<T> {
-        private Node current, next;
+    // Iterator-like object for transactions building, provides facility for consistent changes to some part of the list
+    public class TransactionBuilder implements AutoCloseable {
+        private Node current;
         private ListTransaction transaction = new ListTransaction();
+        private boolean buildingTrans = false;
 
-        private TransactionalIterator() {
-            this(sentinel);
+        private TransactionBuilder() {
+            this(frontSentinel);
         }
 
-        private TransactionalIterator(Node current) {
+        private TransactionBuilder(Node current) {
             this.current = current;
-            this.next = current.getNext();
         }
 
         @Override
-        public boolean hasNext() {
-            return next != sentinel;
+        public void close() {
+            transaction.close();
         }
 
-        @Override
         public T next() {
-            if (next == sentinel) {
+            Node next;
+            if (buildingTrans) {
+                next = transaction.addNextToTransaction(current);
+            } else {
+                next = current.getNext();
+            }
+
+            if (next == backSentinel) {
                 throw new NoSuchElementException("No next value available");
             }
 
             current = next;
-            next = current.getNext();
-
             return current.getVal();
         }
 
@@ -168,17 +156,17 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             return transaction.size();
         }
 
-        // Adds node with last returned element to transaction
-        public void addToTransaction() {
-            if (current == sentinel) {
-                throw new IllegalStateException("Cannot add to transaction before next() method called");
-            }
-
-            transaction.addToTransaction(current);
+        // After that method call 
+        // all elements returned by subsequent next() calls will be added to the transaction
+        public void startTransaction() {
+            buildingTrans = true;
         }
 
-        // Gives ownership over transaction built with this iterator
+        // End building of transaction
+        // Gives ownership over transaction built
         public ListTransaction runTransaction() {
+            buildingTrans = false;
+
             ListTransaction ret = transaction;
             transaction = new ListTransaction();
 
@@ -192,19 +180,33 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
         private int size = 0;
         private boolean closed = false;
 
-        void addToTransaction(Node node) {
+        public Node addNextToTransaction(Node prev) {
             if (closed) {
                 throw new IllegalStateException("Cannot add to closed transaction");
             }
 
+            Node node;
             if (last == null) {
-                node.getPrevLinkLock().writeLock().lock();
-                node.getNextLinkLock().writeLock().lock();
+                prev.getNodeLock().writeLock().lock();
+
+                node = prev.getNext();
+                if (node == backSentinel) {
+                    prev.getNodeLock().writeLock().unlock();
+                    throw new NoSuchElementException("No next value available");
+                }
+
+                node.getNodeLock().writeLock().lock();
+                node.getNext().getNodeLock().writeLock().lock();
 
                 first = node;
                 last = node;
-            } else if(node == last.getNext()) {
-                node.getNextLinkLock().writeLock().lock();
+            } else if(prev == last) {
+                node = prev.getNext();
+                if (node == backSentinel) {
+                    throw new NoSuchElementException("No next value available");
+                }
+
+                node.getNext().getNodeLock().writeLock().lock();
 
                 last = node;
             } else {
@@ -212,6 +214,7 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             }
 
             size++;
+            return node;
         }
 
         @Override
@@ -219,11 +222,12 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             if (!closed) {
                 Node cursor;
                 for (cursor = last; cursor != first; cursor = cursor.getPrev()) {
-                    cursor.getNextLinkLock().writeLock().unlock();
+                    cursor.getNext().getNodeLock().writeLock().unlock();
                 }
                 if (cursor != null) {
-                    cursor.getNextLinkLock().writeLock().unlock();
-                    cursor.getPrevLinkLock().writeLock().unlock();
+                    cursor.getNext().getNodeLock().writeLock().unlock();
+                    cursor.getNodeLock().writeLock().unlock();
+                    cursor.getPrev().getNodeLock().writeLock().unlock();
                 }
 
                 closed = true;
@@ -264,11 +268,6 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
 
                 fstNodePrev.setNext(sndNode);
                 sndNodeNext.setPrev(fstNode);
-
-                fstNode.setPrevLinkLock(fstNode.getNextLinkLock());
-                fstNode.setNextLinkLock(sndNodeNext.getPrevLinkLock());
-                sndNode.setNextLinkLock(sndNode.getPrevLinkLock());
-                sndNode.setPrevLinkLock(fstNodePrev.getNextLinkLock());
             } else {
                 fstNode.setPrev(sndNodePrev);
                 fstNode.setNext(sndNodeNext);
@@ -279,11 +278,6 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
                 fstNodeNext.setPrev(sndNode);
                 sndNodePrev.setNext(fstNode);
                 sndNodeNext.setPrev(fstNode);
-
-                fstNode.setPrevLinkLock(sndNodePrev.getNextLinkLock());
-                fstNode.setNextLinkLock(sndNodeNext.getPrevLinkLock());
-                sndNode.setPrevLinkLock(fstNodePrev.getNextLinkLock());
-                sndNode.setNextLinkLock(fstNodeNext.getPrevLinkLock());
             }
 
             if (first == fstNode) {
@@ -294,8 +288,8 @@ public class ConcurrentLinkedList<T> implements Iterable<T> {
             }
         }
 
-        public TransactionalIterator transactionalIterator(int index) {
-            return new TransactionalIterator(getNode(index));
+        public TransactionBuilder transactionBuilder(int index) {
+            return new TransactionBuilder(getNode(index));
         }
 
         public ReadIterator readIterator(int index) {
