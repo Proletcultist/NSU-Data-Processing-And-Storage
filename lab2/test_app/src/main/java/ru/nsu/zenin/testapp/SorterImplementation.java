@@ -6,11 +6,14 @@ enum SorterImplementation {
     CONCURRENT_LIST,
     SYNCHRONIZED_LIST;
 
-    public static SorterImplementation fromString(String str) throws UnknownSorterImplementationException {
+    public static SorterImplementation fromString(String str)
+            throws UnknownSorterImplementationException {
         return switch (str) {
             case "concurrent" -> SorterImplementation.CONCURRENT_LIST;
             case "synchronized" -> SorterImplementation.SYNCHRONIZED_LIST;
-            default -> throw new UnknownSorterImplementationException("Unknown sorter implementation: " + str);
+            default ->
+                    throw new UnknownSorterImplementationException(
+                            "Unknown sorter implementation: " + str);
         };
     }
 }

@@ -1,7 +1,7 @@
 package ru.nsu.zenin.sorting;
 
-import lombok.RequiredArgsConstructor;
 import java.util.NoSuchElementException;
+import lombok.RequiredArgsConstructor;
 import ru.nsu.zenin.list.ConcurrentLinkedList;
 
 @RequiredArgsConstructor
@@ -38,11 +38,12 @@ public class ConcurrentListSorter<T extends Comparable<T>> implements Runnable {
                             Thread.sleep(outDelay);
                         }
                     }
-                } catch (NoSuchElementException ignore) {}
-                finally {
+                } catch (NoSuchElementException ignore) {
+                } finally {
                     it.close();
                 }
             }
-        } catch (InterruptedException ignore) {}
+        } catch (InterruptedException ignore) {
+        }
     }
 }
