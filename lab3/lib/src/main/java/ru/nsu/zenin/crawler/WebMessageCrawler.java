@@ -7,7 +7,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,33 +22,34 @@ public class WebMessageCrawler {
     private final HttpResponse.BodyHandler<String> bodyHandler = HttpResponse.BodyHandlers.ofString();
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public CompletableFuture<List<Result<String>>> crawlAsync(URI uri) {
+    public CompletableFuture<Stream<Result<String>>> crawlAsync(URI uri) {
         return CompletableFuture.supplyAsync(
                 () -> Result
                     .ofTry(() -> get(uri))
-                    .map(resp -> Stream
-                        .concat(
-                                Stream.of(Result.ofValue(resp.message())),
-                                resp
-                                    .successors()
-                                    .stream()
-                                    .map(path -> Result.ofTry(() -> new URI(
-                                            uri.getScheme(),
-                                            uri.getAuthority(),
-                                            "/" + path,
-                                            null,
-                                            null
-                                    )))
-                                    .map(resUri -> resUri.map(u -> crawlAsync(u)))
-                                    .toList()
-                                    .stream()
-                                    .map(resFut -> resFut.map(fut -> fut.join()))
-                                    .flatMap(res -> res
-                                        .or(e -> List.of(Result.ofException(new CrawlerException(uri, e))))
-                                        .stream())
-                        )
-                        .toList())
-                    .or(e -> List.of(Result.ofException(new CrawlerException(uri, e)))),
+                    .map(resp -> Stream.concat(
+                            Stream.of(Result.ofValue(resp.message())),
+                            resp
+                                .successors()
+                                .stream()
+                                .map(path -> Result.ofTry(() -> new URI(
+                                        uri.getScheme(),
+                                        uri.getAuthority(),
+                                        "/" + path,
+                                        null,
+                                        null
+                                )))
+                                .map(resUri -> resUri
+                                    .map(u -> crawlAsync(u))
+                                    .or(e -> CompletableFuture.completedFuture(Stream.of(Result.ofException(
+                                            new CrawlerException(uri, e)
+                                    )))))
+                                .reduce(CompletableFuture.completedFuture(Stream.empty()), (fst, snd) -> fst.thenCombine(
+                                        snd,
+                                        Stream::concat
+                                ))
+                                .join()
+                    ))
+                    .or(e -> Stream.of(Result.ofException(new CrawlerException(uri, e)))),
                 executor
         );
     }
