@@ -35,7 +35,6 @@ public class App {
         crawler
             .crawlAsync(uri)
             .join()
-            .stream()
             .filter(res -> {
                 if (res.isOk()) {
                     return true;
