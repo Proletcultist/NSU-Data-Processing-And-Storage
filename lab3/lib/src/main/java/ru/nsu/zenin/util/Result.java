@@ -1,16 +1,17 @@
 package ru.nsu.zenin.util;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.AccessLevel;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class Result<T> {
     private final Exception exception;
     private final T val;
-    @Getter private final boolean ok;
+    @Getter
+    private final boolean ok;
 
     public static <U> Result<U> ofValue(U val) {
         return new Result<U>(null, val, true);
@@ -59,7 +60,7 @@ public class Result<T> {
 
         return val;
     }
-    
+
     public Exception getException() {
         if (ok) {
             throw new IllegalStateException("No exception in successful CrawlingResult");
