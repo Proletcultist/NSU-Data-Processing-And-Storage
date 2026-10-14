@@ -1,22 +1,21 @@
 package ru.nsu.zenin.crawler;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.List;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
-import lombok.RequiredArgsConstructor;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.URI;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Stream;
+import lombok.RequiredArgsConstructor;
 import ru.nsu.zenin.crawler.exception.CrawlerException;
 import ru.nsu.zenin.crawler.exception.HttpException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.CompletionException;
-import java.util.stream.Stream;
 import ru.nsu.zenin.util.Result;
-import java.io.IOException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 
 @RequiredArgsConstructor
 public class WebMessageCrawler {
@@ -25,28 +24,38 @@ public class WebMessageCrawler {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public CompletableFuture<List<Result<String>>> crawlAsync(URI uri) {
-        return CompletableFuture
-            .supplyAsync(() ->
-                Result.ofTry(() -> get(uri))
-                    .map(resp -> 
-                        Stream.concat(
-                            Stream.of(Result.ofValue(resp.message())),
-                            resp.successors().stream()
-                                .map(path -> Result.ofTry(() -> new URI(uri.getScheme(), uri.getAuthority(), "/" + path, null, null)))
-                                .map(resUri -> resUri.map(u -> crawlAsync(u)))
-                                .toList().stream()
-                                .map(resFut -> resFut.map(fut -> fut.join()))
-                                .flatMap(res -> res.or(e -> List.of(Result.ofException(new CrawlerException(uri, e)))).stream()))
+        return CompletableFuture.supplyAsync(
+                () -> Result
+                    .ofTry(() -> get(uri))
+                    .map(resp -> Stream
+                        .concat(
+                                Stream.of(Result.ofValue(resp.message())),
+                                resp
+                                    .successors()
+                                    .stream()
+                                    .map(path -> Result.ofTry(() -> new URI(
+                                            uri.getScheme(),
+                                            uri.getAuthority(),
+                                            "/" + path,
+                                            null,
+                                            null
+                                    )))
+                                    .map(resUri -> resUri.map(u -> crawlAsync(u)))
+                                    .toList()
+                                    .stream()
+                                    .map(resFut -> resFut.map(fut -> fut.join()))
+                                    .flatMap(res -> res
+                                        .or(e -> List.of(Result.ofException(new CrawlerException(uri, e))))
+                                        .stream())
+                        )
                         .toList())
-                    .or(e -> List.of(Result.ofException(new CrawlerException(uri, e))))
-            , executor);
+                    .or(e -> List.of(Result.ofException(new CrawlerException(uri, e)))),
+                executor
+        );
     }
 
     private ServerResponse get(URI uri) throws HttpException, IOException, JsonProcessingException, InterruptedException {
-        HttpRequest req = HttpRequest.newBuilder()
-            .uri(uri)
-            .GET()
-            .build();
+        HttpRequest req = HttpRequest.newBuilder().uri(uri).GET().build();
 
         HttpResponse<String> resp = client.send(req, bodyHandler);
 
