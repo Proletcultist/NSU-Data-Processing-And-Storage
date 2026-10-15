@@ -11,10 +11,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import ru.nsu.zenin.crawler.exception.CrawlerException;
 import ru.nsu.zenin.crawler.exception.HttpException;
 import ru.nsu.zenin.util.Result;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RequiredArgsConstructor
 public class WebMessageCrawler {
@@ -23,6 +25,10 @@ public class WebMessageCrawler {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public CompletableFuture<Stream<Result<String>>> crawlAsync(URI uri) {
+        return crawlAsync(uri, ConcurrentHashMap.newKeySet());
+    }
+
+    private CompletableFuture<Stream<Result<String>>> crawlAsync(URI uri, Set<URI> visited) {
         return CompletableFuture.supplyAsync(
                 () -> Result
                     .ofTry(() -> get(uri))
@@ -38,8 +44,12 @@ public class WebMessageCrawler {
                                         null,
                                         null
                                 )))
+                                .filter(resUri -> !resUri.isOk() || !visited.contains(resUri.getValue()))
                                 .map(resUri -> resUri
-                                    .map(u -> crawlAsync(u))
+                                    .map(u -> {
+                                        visited.add(u);
+                                        return crawlAsync(u);
+                                    })
                                     .or(e -> CompletableFuture.completedFuture(Stream.of(Result.ofException(
                                             new CrawlerException(uri, e)
                                     )))))
