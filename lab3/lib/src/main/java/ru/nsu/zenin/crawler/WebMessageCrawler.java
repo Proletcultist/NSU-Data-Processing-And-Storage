@@ -44,12 +44,9 @@ public class WebMessageCrawler {
                                         null,
                                         null
                                 )))
-                                .filter(resUri -> !resUri.isOk() || !visited.contains(resUri.getValue()))
+                                .filter(resUri -> !resUri.isOk() || visited.add(resUri.getValue()))
                                 .map(resUri -> resUri
-                                    .map(u -> {
-                                        visited.add(u);
-                                        return crawlAsync(u);
-                                    })
+                                    .map(u -> crawlAsync(u))
                                     .or(e -> CompletableFuture.completedFuture(Stream.of(Result.ofException(
                                             new CrawlerException(uri, e)
                                     )))))
