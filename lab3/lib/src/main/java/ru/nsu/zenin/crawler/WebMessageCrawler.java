@@ -54,7 +54,11 @@ public class WebMessageCrawler {
         );
     }
 
-    private ServerResponse get(URI uri) throws HttpException, IOException, JsonProcessingException, InterruptedException {
+    protected ServerResponse get(URI uri)
+            throws HttpException,
+            IOException,
+            JsonProcessingException,
+            InterruptedException {
         HttpRequest req = HttpRequest.newBuilder().uri(uri).GET().build();
 
         HttpResponse<String> resp = client.send(req, bodyHandler);

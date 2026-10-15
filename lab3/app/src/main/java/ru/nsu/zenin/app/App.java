@@ -1,10 +1,14 @@
 package ru.nsu.zenin.app;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
+import ru.nsu.zenin.crawler.exception.HttpException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import ru.nsu.zenin.crawler.WebMessageCrawler;
+import ru.nsu.zenin.crawler.ServerResponse;
 
 public class App {
     public static void main(String[] args) {
@@ -30,7 +34,17 @@ public class App {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-        WebMessageCrawler crawler = new WebMessageCrawler(client);
+        WebMessageCrawler crawler = new WebMessageCrawler(client) {
+            @Override
+            protected ServerResponse get(URI uri)
+                    throws HttpException,
+                    IOException,
+                    JsonProcessingException,
+                    InterruptedException {
+                System.err.println("Crawling " + uri.toString());
+                return super.get(uri);
+            }
+        };
 
         crawler
             .crawlAsync(uri)
@@ -39,7 +53,7 @@ public class App {
                 if (res.isOk()) {
                     return true;
                 } else {
-                    System.err.println("Error: " + res.getException().toString());
+                    System.err.println("Error: " + res.getException().getMessage());
                     return false;
                 }
             })
