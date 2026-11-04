@@ -46,7 +46,8 @@
                       :duration duration,
                       :target-storage target-storage,
                       :bill bill,
-                      :buffer buffer}]
+                      :buffer buffer
+                      :production-line (agent nil)}]
     {:worker (agent worker-state)}))
 
 (defn source
@@ -98,13 +99,56 @@
             [:ok res]
             (recur)))))))
 
-(defn try-take 
+(defn try-take-from-storage
+  [state ware storage-atom amount]
+  (let [bill (state :bill),
+        buffer (state :buffer),
+        required (get bill ware 0),
+        have (get buffer ware 0),
+        need (- required have),
+        desired-amount (min need amount),
+        took (loop [to-take desired-amount]
+               (if (pos? to-take)
+                 (let [[status res] (try-swap! storage-atom (fn [n] (- n to-take)))]
+                   (case status
+                     :ok to-take
+                     :error (recur res)))
+                 0))]
+    (assoc state :buffer
+      (assoc buffer ware
+        (+ have took)))))
 
-(defn ready-to-produce
-  [bill buffer]
-  ())
+(defn ready-to-produce?
+  [state]
+  (let [bill (state :bill),
+        buffer (state :buffer)]
+    (every? 
+      (fn [[ware required]]
+        (>= (get buffer ware 0) required))
+      bill)))
 
-(defn notify-msg
+(defn try-produce
+  [state]
+  (if (ready-to-produce? state)
+    (let [bill (state :bill),
+          buffer (state :buffer),
+          duration (state :duration),
+          amount (state :amount),
+          target-storage (state :target-storage)
+          production-line (state :production-line)]
+      (send-off production-line 
+                (fn [_]
+                  (Thread/sleep duration)
+                  (send (target-storage :worker) supply-msg amount)
+                  nil))
+      (assoc state :buffer
+             (reduce-kv 
+               (fn [m ware have] (assoc m ware (- have (get bill ware 0)))) 
+               {} 
+               buffer)))
+    state))
+
+(def notify-msg
   "A message that can be sent to a factory worker to notify that the provided 'amount' of 'ware's are
    just put to the 'storage-atom'."
    ;; 'state' is for agent created in 'factory', see comments in its code for details
@@ -116,21 +160,7 @@
    ;;   after it finished all the wares must be removed from the internal ':buffer' and ':target-storage' must be notified  
    ;;   with 'supply-msg'
    ;; - return new agent state with possibly modified ':buffer' in any case!
-  [state ware storage-atom amount]
-  (let [bill (state :bill),
-        buffer (state :buffer),
-        required (get bill ware 0),
-        have (get buffer ware 0),
-        need (- required have),
-        desired-amount (min need amount)
-        took (loop [to-take desired-amount]
-               (if (pos? to-take)
-                 (let [[status res] (try-swap! storage-atom (fn [n] (- n to-take)))]
-                   (case status
-                     :ok to-take
-                     :error (recur res)))
-                 0))]
-    ()))
+  (comp try-produce try-take-from-storage))
 
 ;;;
 (def safe-storage (storage "Safe" 1))
