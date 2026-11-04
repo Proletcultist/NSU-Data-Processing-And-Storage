@@ -151,15 +151,6 @@
 (def notify-msg
   "A message that can be sent to a factory worker to notify that the provided 'amount' of 'ware's are
    just put to the 'storage-atom'."
-   ;; 'state' is for agent created in 'factory', see comments in its code for details
-   ;;The implementation should:
-   ;; - try to retrieve some items from the 'storage-atom' if necessary
-   ;; - if the retrieval is not successful, do not forget to handle validation exception correctly 
-   ;; - if the retrieval is successful, put wares into the internal ':buffer'
-   ;; - when there are enough wares of all types according to :bill, a new cycle must be started with given duratin;
-   ;;   after it finished all the wares must be removed from the internal ':buffer' and ':target-storage' must be notified  
-   ;;   with 'supply-msg'
-   ;; - return new agent state with possibly modified ':buffer' in any case!
   (comp try-produce try-take-from-storage))
 
 ;;;
